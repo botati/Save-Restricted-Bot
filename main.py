@@ -9,6 +9,18 @@ from pyrogram import Client, filters
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
+if os.path.exists('config.json'):
+    with open('config.json', 'r') as f:
+        DATA = json.load(f)
+else:
+    DATA = {}
+
+# هذا هو تعريف الدالة المفقودة
+def getenv(var):
+    """Gets a variable from environment or config.json"""
+    return os.environ.get(var) or DATA.get(var)
+
+
 # مكتبة للتعامل مع MongoDB بشكل غير متزامن
 import motor.motor_asyncio
 
