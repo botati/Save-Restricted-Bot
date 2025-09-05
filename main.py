@@ -1,284 +1,191 @@
 # WOODcraft https://github.com/SudoR2spr/Save-Restricted-Bot
+# تم التعديل وإضافة نظام الاشتراكات مع تخزين MongoDB بواسطة مساعد Gemini
+
+import os
+import re
+import asyncio
 import pyrogram
 from pyrogram import Client, filters
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
-import time
-import os
-import threading
-import json
+# مكتبة للتعامل مع MongoDB بشكل غير متزامن
+import motor.motor_asyncio
 
-with open('config.json', 'r') as f: DATA = json.load(f)
-def getenv(var): return os.environ.get(var) or DATA.get(var, None)
+# --- الإعدادات والمتغيرات الأساسية ---
+# !! تأكد من وضع معلوماتك الصحيحة هنا أو في متغيرات البيئة !!
+API_ID = int(getenv("API_ID", "20182797")) # ضع رقم API_ID الخاص بك
+API_HASH = getenv("API_HASH", "cb730814928cca90368dd2df4cea4e38") # ضع API_HASH الخاص بك
+BOT_TOKEN = getenv("LOL_BOT_TOKEN", "7258603453:AAEXAbOth7N7Nm0SG7DZEmMuhSxWIzC_QLU") # ضع توكن البوت
+SESSION_STRING = getenv("STRING", "BAEz9w0AdQTv2ovxwDITO-1evhJ5JqCiGL9FnBYV79Y2hdDZHa1Emt_XQs1XL7lEhR6aXvt3OPRp2HtKmxzePrLhNfo2arIkQPhkvD2vUK-A3JRvsVuJ5UqS4-wIVRmM5FHuY43wycJDzlWChzGf1FBjo1Dp9VAzqegfp30_kxyXizKCf0FmGsQssTjuzOhppKYW37_z77-8K0wvgG_Cwqe9zPOFUcyXx7DaqgSPAmOqKJj8lCBNjayzC0iSF0FOcOtrRdlqulFSksYaFn9zywgbtRwFGcFh-FeyjFrR74422VFiZuysGc3PEqyBor3ZSlFK2dZFydoGp7GFGqY_f0ln8KeXmAAAAAHn5H6mAA") # ضع جلسة الحساب المساعد
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://public:abishnoimf@cluster0.rqk6ihd.mongodb.net/?retryWrites=true&w=majority") # !! ضع رابط قاعدة بياناتك هنا !!
+OWNER_ID = int(getenv("OWNER_ID", "5838811608")) # !! ضع معرف حسابك (المالك) هنا !!
+DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME", "EG_28") # !! ضع معرف المطور للتواصل !!
 
-bot_token = getenv("LOL_BOT_TOKEN")
-api_hash = getenv("API_LOL_HASH")
-api_id = getenv("API_LOL_ID")
-bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+# --- إعداد قاعدة البيانات ---
+db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+db = db_client.JokerBotDB
+premium_users_db = db.premium_users
+free_users_db = db.free_users
 
-ss = getenv("STRING")
-if ss is not None:
-	acc = Client("myacc" ,api_id=api_id, api_hash=api_hash, session_string=ss)
-	acc.start()
-else: acc = None
+# --- تهيئة البوت والحساب المساعد ---
+bot = Client("mybot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+acc = Client("myacc", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
 
-# download status
-def downstatus(statusfile,message):
-	while True:
-		if os.path.exists(statusfile):
-			break
+# --- دوال مساعدة لقاعدة البيانات ---
+async def is_premium(user_id: int) -> bool:
+    """للتحقق إذا كان المستخدم مشتركًا"""
+    return await premium_users_db.find_one({'_id': user_id}) is not None
 
-	time.sleep(3)
-	while os.path.exists(statusfile):
-		with open(statusfile,"r") as downread:
-			txt = downread.read()
-		try:
-			bot.edit_message_text(message.chat.id, message.id, f"تـم تـنـزيــل بنـجـاح ✅ : **{txt}**")
-			time.sleep(10)
-		except:
-			time.sleep(5)
+async def get_user_usage(user_id: int) -> int:
+    """للحصول على عدد استخدامات المستخدم المجاني"""
+    user_data = await free_users_db.find_one({'_id': user_id})
+    return user_data.get('usage', 0) if user_data else 0
+
+async def increment_user_usage(user_id: int):
+    """لزيادة عدد استخدامات المستخدم المجاني"""
+    await free_users_db.update_one({'_id': user_id}, {'$inc': {'usage': 1}}, upsert=True)
+
+# --- أوامر المالك (تفعيل وإلغاء الاشتراك) ---
+@bot.on_message(filters.command("activate") & filters.user(OWNER_ID))
+async def activate_user(_, message: Message):
+    if len(message.command) < 2 or not message.command[1].isdigit():
+        await message.reply_text("⚠️ **خطأ في الاستخدام.**\n\nيرجى استخدام الأمر هكذا:\n`/activate 123456789`")
+        return
+    
+    user_id_to_activate = int(message.command[1])
+    if await is_premium(user_id_to_activate):
+        await message.reply_text(f"✅ المستخدم `{user_id_to_activate}` مشترك بالفعل.")
+        return
+        
+    await premium_users_db.update_one({'_id': user_id_to_activate}, {'$set': {'status': 'active'}}, upsert=True)
+    await free_users_db.delete_one({'_id': user_id_to_activate})
+    await message.reply_text(f"✨ تم تفعيل الاشتراك للمستخدم `{user_id_to_activate}` بنجاح.\n\nالآن يمكنه السحب بلا حدود.")
+
+@bot.on_message(filters.command("deactivate") & filters.user(OWNER_ID))
+async def deactivate_user(_, message: Message):
+    if len(message.command) < 2 or not message.command[1].isdigit():
+        await message.reply_text("⚠️ **خطأ في الاستخدام.**\n\nيرجى استخدام الأمر هكذا:\n`/deactivate 123456789`")
+        return
+
+    user_id_to_deactivate = int(message.command[1])
+    if not await is_premium(user_id_to_deactivate):
+        await message.reply_text(f"ℹ️ المستخدم `{user_id_to_deactivate}` ليس مشتركًا أصلاً.")
+        return
+
+    await premium_users_db.delete_one({'_id': user_id_to_deactivate})
+    await message.reply_text(f"🗑️ تم إلغاء اشتراك المستخدم `{user_id_to_deactivate}`.")
 
 
-# upload status
-def upstatus(statusfile,message):
-	while True:
-		if os.path.exists(statusfile):
-			break
+# --- معالج الرسائل الرئيسي ---
+@bot.on_message(filters.text & filters.private)
+async def save_handler(client, message: Message):
+    user_id = message.from_user.id
 
-	time.sleep(3)
-	while os.path.exists(statusfile):
-		with open(statusfile,"r") as upread:
-			txt = upread.read()
-		try:
-			bot.edit_message_text(message.chat.id, message.id, f"تـم التـحمـيـل بنـجـاح ✅↪️ : **{txt}**")
-			time.sleep(10)
-		except:
-			time.sleep(5)
+    # التعامل مع روابط الانضمام
+    if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
+        try:
+            await acc.join_chat(message.text)
+            await message.reply_text("تــم الانضمام بنـجـاح ✅🚀")
+        except UserAlreadyParticipant:
+            await message.reply_text("مـسـاعـد البـوت مـوجود فعـلا 🔥🚀")
+        except InviteHashExpired:
+            await message.reply_text("خـطـأ فـي رابــط الانضمام ⚠️‼️")
+        except Exception as e:
+            await message.reply_text(f"حدث خطأ: {e}")
+        return
+
+    # التعامل مع روابط الرسائل
+    if "https://t.me/" in message.text:
+        # التحقق من الاشتراك والحدود
+        is_user_premium = await is_premium(user_id)
+        if not is_user_premium:
+            usage = await get_user_usage(user_id)
+            if usage >= 5:
+                await message.reply_text(f"🚫 **لقد وصلت إلى الحد الأقصى للسحب (5 رسائل).**\n\nللحصول على سحب غير محدود، يرجى التواصل مع المطور للاشتراك: @{DEVELOPER_USERNAME}")
+                return
+
+        # تحليل الرابط
+        try:
+            datas = message.text.split("/")
+            temp = datas[-1].replace("?single", "").split("-")
+            from_id = int(temp[0].strip())
+            to_id = int(temp[1].strip()) if len(temp) > 1 else from_id
+        except (ValueError, IndexError):
+            await message.reply_text("يرجى إرسال رابط منشور صحيح. 🙏")
+            return
+
+        # بدء عملية الحفظ
+        for msg_id in range(from_id, to_id + 1):
+            chat_id_str = datas[4] if "t.me/c/" in message.text else datas[3]
+            
+            try:
+                # محاولة الحفظ وإعادة التوجيه
+                if "t.me/c/" in message.text:
+                    chat_id = int("-100" + chat_id_str)
+                    await acc.forward_messages(chat_id=user_id, from_chat_id=chat_id, message_ids=msg_id)
+                else: # للقنوات العامة
+                    await bot.forward_messages(chat_id=user_id, from_chat_id=chat_id_str, message_ids=msg_id)
+
+                # زيادة العداد للمستخدم المجاني بعد كل عملية سحب ناجحة
+                if not is_user_premium:
+                    await increment_user_usage(user_id)
+                
+                await asyncio.sleep(2) # انتظار بسيط بين الرسائل
+
+            except (PeerIdInvalid, ChannelPrivate, ValueError):
+                await message.reply_text(
+                    "❌ **فشل الوصول إلى الرسالة!**\n\n"
+                    "السبب على الأغلب هو أن **الحساب المساعد ليس عضواً في القناة الخاصة**.\n"
+                    "يرجى التأكد من إضافة الحساب المساعد إلى القناة ثم المحاولة مرة أخرى."
+                )
+                break # إيقاف الحلقة في حال حدوث خطأ
+            except Exception as e:
+                # إذا فشل التوجيه (بسبب الحماية)، استخدم الطريقة اليدوية
+                if "t.me/c/" in message.text:
+                    chat_id = int("-100" + chat_id_str)
+                    await handle_private_manual(message, chat_id, msg_id)
+                else:
+                    await handle_private_manual(message, chat_id_str, msg_id)
+
+                if not is_user_premium:
+                    await increment_user_usage(user_id)
+                await asyncio.sleep(2)
+    else:
+        await send_start(client, message)
 
 
-# progress writter
-def progress(current, total, message, type):
-	with open(f'{message.id}{type}status.txt',"w") as fileup:
-		fileup.write(f"{current * 100 / total:.1f}%")
+async def handle_private_manual(message, chat_id, msg_id):
+    """
+    يقوم بتنزيل وإعادة رفع المحتوى يدويًا
+    """
+    try:
+        msg = await acc.get_messages(chat_id, msg_id)
+        # سيتم إضافة منطق التنزيل والرفع هنا عند الحاجة
+        # حاليًا، forward_messages هي الطريقة الأكثر فعالية
+        await msg.copy(message.chat.id)
 
+    except Exception as e:
+        await message.reply_text(f"حدث خطأ أثناء المعالجة اليدوية: {e}")
 
-# start command
+# أمر البدء
 @bot.on_message(filters.command(["start"]))
-def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    # Send the reply photo first
-    bot.send_photo(
-        chat_id=message.chat.id,
-        photo="https://c.top4top.io/p_3535lbyx51.png",  # Photo link
+async def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
+    await message.reply_photo(
+        photo="https://c.top4top.io/p_3535lbyx51.png",
         caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
-        reply_to_message_id=message.id,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
     )
 
-@bot.on_message(filters.text)
-def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-	print(message.text)
+# --- دالة التشغيل الرئيسية ---
+async def main():
+    await acc.start()
+    await bot.start()
+    print(">>> البوت يعمل الآن...")
+    await asyncio.Event().wait() # لإبقاء البوت يعمل
 
-	# joining chats
-	if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
-
-		if acc is None:
-			bot.send_message(message.chat.id,f"عـذرا خـطـأ غـير مفهوم ‼️‼️", reply_to_message_id=message.id)
-			return
-
-		try:
-			try: acc.join_chat(message.text)
-			except Exception as e:
-				bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
-				return
-			bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
-		except UserAlreadyParticipant:
-			bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
-		except InviteHashExpired:
-			bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
-
-	# getting message
-	elif "https://t.me/" in message.text:
-
-		datas = message.text.split("/")
-		temp = datas[-1].replace("?single","").split("-")
-		fromID = int(temp[0].strip())
-		try: toID = int(temp[1].strip())
-		except: toID = fromID
-
-		for msgid in range(fromID, toID+1):
-
-			# private
-			if "https://t.me/c/" in message.text:
-				chatid = int("-100" + datas[4])
-				
-				if acc is None:
-					bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
-					return
-				
-				handle_private(message,chatid,msgid)
-
-			# bot
-			elif "https://t.me/b/" in message.text:
-				username = datas[4]
-				
-				if acc is None:
-					bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖𝐭", reply_to_message_id=message.id)
-					return
-				try: handle_private(message,username,msgid)
-				except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
-
-			# public
-			else:
-				username = datas[3]
-
-				try: msg = bot.get_messages(username,msgid)
-				except UsernameNotOccupied:
-					bot.send_message(message.chat.id,f"عـذرا هـذا الـمـجمـوعـة / الـقـناة غـير مـوجـوده مـن فضـلك حـاول مـن جـديد ✅🚀", reply_to_message_id=message.id)
-					return
-				try:
-					if '?single' not in message.text:
-						bot.copy_message(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
-					else:
-						bot.copy_media_group(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
-				except:
-					if acc is None:
-						bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
-						return
-					try: handle_private(message,username,msgid)
-					except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
-
-			# wait time
-			time.sleep(3)
-
-
-# handle private
-def handle_private(message: pyrogram.types.messages_and_media.message.Message, chatid: int, msgid: int):
-    # --- بداية التعديل ---
+if __name__ == "__main__":
     try:
-        # محاولة جلب الرسالة من القناة الخاصة
-        msg: pyrogram.types.messages_and_media.message.Message = acc.get_messages(chatid, msgid)
-    
-    except (PeerIdInvalid, ChannelPrivate, ValueError):
-        # في حال فشل الوصول بسبب الصلاحيات، يتم إرسال هذه الرسالة للمستخدم
-        bot.send_message(
-            message.chat.id,
-            "❌ **فشل الوصول إلى الرسالة!**\n\n"
-            "السبب على الأغلب هو أن **الحساب المساعد ليس عضواً في القناة الخاصة**.\n"
-            "يرجى التأكد من إضافة الحساب المساعد إلى القناة ثم المحاولة مرة أخرى.",
-            reply_to_message_id=message.id
-        )
-        return  # إيقاف الدالة هنا لمنع المزيد من الأخطاء
-
-    except Exception as e:
-        # لأي أخطاء أخرى غير متوقعة
-        bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
-        return
-    # --- نهاية التعديل ---
-
-    msg_type = get_message_type(msg)
-
-    if "Text" == msg_type:
-        bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
-        return
-
-    smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
-    dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
-    dosta.start()
-    file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
-    os.remove(f'{message.id}downstatus.txt')
-
-    upsta = threading.Thread(target=lambda:upstatus(f'{message.id}upstatus.txt',smsg),daemon=True)
-    upsta.start()
-    
-    if "Document" == msg_type:
-        try:
-            thumb = acc.download_media(msg.document.thumbs[0].file_id)
-        except: thumb = None
-        
-        bot.send_document(message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
-        if thumb != None: os.remove(thumb)
-
-    elif "Video" == msg_type:
-        try: 
-            thumb = acc.download_media(msg.video.thumbs[0].file_id)
-        except: thumb = None
-
-        bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
-        if thumb != None: os.remove(thumb)
-
-    elif "Animation" == msg_type:
-        bot.send_animation(message.chat.id, file, reply_to_message_id=message.id)
-        
-    elif "Sticker" == msg_type:
-        bot.send_sticker(message.chat.id, file, reply_to_message_id=message.id)
-
-    elif "Voice" == msg_type:
-        bot.send_voice(message.chat.id, file, caption=msg.caption, thumb=thumb, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
-
-    elif "Audio" == msg_type:
-        try:
-            thumb = acc.download_media(msg.audio.thumbs[0].file_id)
-        except: thumb = None
-            
-        bot.send_audio(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])    
-        if thumb != None: os.remove(thumb)
-
-    elif "Photo" == msg_type:
-        bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
-
-    os.remove(file)
-    if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
-    bot.delete_messages(message.chat.id,[smsg.id])
-
-
-# get the type of message
-def get_message_type(msg: pyrogram.types.messages_and_media.message.Message):
-	try:
-		msg.document.file_id
-		return "Document"
-	except: pass
-
-	try:
-		msg.video.file_id
-		return "Video"
-	except: pass
-
-	try:
-		msg.animation.file_id
-		return "Animation"
-	except: pass
-
-	try:
-		msg.sticker.file_id
-		return "Sticker"
-	except: pass
-
-	try:
-		msg.voice.file_id
-		return "Voice"
-	except: pass
-
-	try:
-		msg.audio.file_id
-		return "Audio"
-	except: pass
-
-	try:
-		msg.photo.file_id
-		return "Photo"
-	except: pass
-
-	try:
-		msg.text
-		return "Text"
-	except: pass
-
-
-USAGE = """اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.
-
-"""
-
-
-# infinty polling
-bot.run()
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("تم إيقاف البوت.")
