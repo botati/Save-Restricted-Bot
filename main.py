@@ -27,8 +27,8 @@ def getenv(var):
 
 # --- الإعدادات والمتغيرات الأساسية ---
 # !! تأكد من وضع معلوماتك الصحيحة هنا أو في متغيرات البيئة !!
-API_ID = int(getenv("API_ID"))
-API_HASH = getenv("API_HASH")
+API_ID = int(getenv("API_LOL_ID"))
+API_HASH = getenv("API_LOL_HASH")
 BOT_TOKEN = getenv("LOL_BOT_TOKEN")
 SESSION_STRING = getenv("STRING")
 MONGO_URI = getenv("MONGO_URI")
