@@ -13,6 +13,9 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 # مكتبة للتعامل مع MongoDB بشكل غير متزامن
 import motor.motor_asyncio
 
+with open('config.json', 'r') as f: DATA = json.load(f)
+def getenv(var): return os.environ.get(var) or DATA.get(var, None)
+
 # --- الإعدادات والمتغيرات الأساسية ---
 # !! تأكد من وضع معلوماتك الصحيحة هنا أو في متغيرات البيئة !!
 API_ID = getenv("API_ID")
