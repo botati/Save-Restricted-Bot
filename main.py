@@ -70,7 +70,7 @@ def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_
     bot.send_photo(
         chat_id=message.chat.id,
         photo="https://c.top4top.io/p_3535lbyx51.png",  # Photo link
-        caption=f""اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
+        caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
         reply_to_message_id=message.id,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
     )
@@ -89,7 +89,7 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 		try:
 			try: acc.join_chat(message.text)
 			except Exception as e: 
-				bot.send_message(message.chat.id,f"𝐄𝐫𝐫𝐨𝐫 : __{e}__", reply_to_message_id=message.id)
+				bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
 				return
 			bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
 		except UserAlreadyParticipant:
