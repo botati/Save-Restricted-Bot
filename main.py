@@ -34,7 +34,7 @@ def downstatus(statusfile,message):
 		with open(statusfile,"r") as downread:
 			txt = downread.read()
 		try:
-			bot.edit_message_text(message.chat.id, message.id, f"__Downloaded__ : **{txt}**")
+			bot.edit_message_text(message.chat.id, message.id, f"تـم تـنـزيــل بنـجـاح ✅ : **{txt}**")
 			time.sleep(10)
 		except:
 			time.sleep(5)
@@ -51,7 +51,7 @@ def upstatus(statusfile,message):
 		with open(statusfile,"r") as upread:
 			txt = upread.read()
 		try:
-			bot.edit_message_text(message.chat.id, message.id, f"𝐔𝐩𝐥𝐨𝐚𝐝𝐞𝐝∝∝∝〇 : **{txt}**")
+			bot.edit_message_text(message.chat.id, message.id, f"تـم التـحمـيـل بنـجـاح ✅↪️ : **{txt}**")
 			time.sleep(10)
 		except:
 			time.sleep(5)
@@ -69,10 +69,10 @@ def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_
     # Send the reply photo first
     bot.send_photo(
         chat_id=message.chat.id,
-        photo="https://graph.org/file/4e8a1172e8ba4b7a0bdfa.jpg",  # Photo link
-        caption=f"__🦋 𝐇𝐢 **{message.from_user.mention}** 🦋 \n\nI am Save Restricted Bot, I can send you restricted content by its post link__\n\n{USAGE}",
+        photo="https://c.top4top.io/p_3535lbyx51.png",  # Photo link
+        caption=f""اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
         reply_to_message_id=message.id,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🫧 𝐔𝐩𝐝𝐚𝐭𝐞 𝐂𝐡𝐚𝐧𝐧𝐞𝐥 🫧", url="https://t.me/Opleech_WD")]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
     )
 
 @bot.on_message(filters.text)
@@ -83,7 +83,7 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 	if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
 
 		if acc is None:
-			bot.send_message(message.chat.id,f"𝐒𝐭𝐫𝐢𝐧𝐠 𝐒𝐞𝐬𝐬𝐢𝐨𝐧 𝐢𝐬 𝐍𝐨 𝐒𝐞𝐭", reply_to_message_id=message.id)
+			bot.send_message(message.chat.id,f"عـذرا خـطـأ غـير مفهوم ‼️‼️", reply_to_message_id=message.id)
 			return
 
 		try:
@@ -91,11 +91,11 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 			except Exception as e: 
 				bot.send_message(message.chat.id,f"𝐄𝐫𝐫𝐨𝐫 : __{e}__", reply_to_message_id=message.id)
 				return
-			bot.send_message(message.chat.id,"𝐂𝐡𝐚𝐭 𝐉𝐨𝐢𝐧𝐞𝐝 ✅", reply_to_message_id=message.id)
+			bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
 		except UserAlreadyParticipant:
-			bot.send_message(message.chat.id,"𝐂𝐡𝐚𝐭 𝐚𝐥𝐫𝐞𝐝𝐲 𝐉𝐨𝐢𝐧𝐞𝐝 😏", reply_to_message_id=message.id)
+			bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
 		except InviteHashExpired:
-			bot.send_message(message.chat.id,"𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐋𝐢𝐧𝐤 😒", reply_to_message_id=message.id)
+			bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
 
 	# getting message
 	elif "https://t.me/" in message.text:
@@ -113,22 +113,22 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 				chatid = int("-100" + datas[4])
 				
 				if acc is None:
-					bot.send_message(message.chat.id,f"𝐒𝐭𝐫𝐢𝐧𝐠 𝐒𝐞𝐬𝐬𝐢𝐨𝐧 𝐢𝐬 𝐍𝐨 𝐒𝐞𝐭", reply_to_message_id=message.id)
+					bot.send_message(message.chat.id,f"هـنـاك خـطأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
 					return
 				
 				handle_private(message,chatid,msgid)
 				# try: handle_private(message,chatid,msgid)
-				# except Exception as e: bot.send_message(message.chat.id,f"𝐄𝐫𝐫𝐨𝐫 : __{e}__", reply_to_message_id=message.id)
+				# except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
 			
 			# bot
 			elif "https://t.me/b/" in message.text:
 				username = datas[4]
 				
 				if acc is None:
-					bot.send_message(message.chat.id,f"𝐒𝐭𝐫𝐢𝐧𝐠 𝐒𝐞𝐬𝐬𝐢𝐨𝐧 𝐢𝐬 𝐍𝐨 𝐒𝐞𝐭", reply_to_message_id=message.id)
+					bot.send_message(message.chat.id,f"هـنـاك خـطأ فـي مسـاعد البـوت ⚠️🤖𝐭", reply_to_message_id=message.id)
 					return
 				try: handle_private(message,username,msgid)
-				except Exception as e: bot.send_message(message.chat.id,f"𝐄𝐫𝐫𝐨𝐫 : __{e}__", reply_to_message_id=message.id)
+				except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
 
 			# public
 			else:
@@ -136,7 +136,7 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 
 				try: msg  = bot.get_messages(username,msgid)
 				except UsernameNotOccupied: 
-					bot.send_message(message.chat.id,f"𝐓𝐡𝐞 𝐔𝐬𝐞𝐫𝐧𝐚𝐦𝐞 𝐢𝐬 𝐍𝐨𝐭 𝐎𝐜𝐜𝐮𝐩𝐢𝐞𝐝 𝐛𝐲 𝐚𝐧𝐲𝐨𝐧𝐞", reply_to_message_id=message.id)
+					bot.send_message(message.chat.id,f"عـذرا هـذا الـمـجمـوعـة / الـقـناة غـير مـوجـوده مـن فضـلك حـاول مـن جـديد ✅🚀", reply_to_message_id=message.id)
 					return
 				try:
 					if '?single' not in message.text:
@@ -145,10 +145,10 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 						bot.copy_media_group(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
 				except:
 					if acc is None:
-						bot.send_message(message.chat.id,f"𝐒𝐭𝐫𝐢𝐧𝐠 𝐒𝐞𝐬𝐬𝐢𝐨𝐧 𝐢𝐬 𝐍𝐨 𝐒𝐞𝐭", reply_to_message_id=message.id)
+						bot.send_message(message.chat.id,f"هـنـاك خـطأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
 						return
 					try: handle_private(message,username,msgid)
-					except Exception as e: bot.send_message(message.chat.id,f"𝐄𝐫𝐫𝐨𝐫 : __{e}__", reply_to_message_id=message.id)
+					except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
 
 			# wait time
 			time.sleep(3)
@@ -163,7 +163,7 @@ def handle_private(message: pyrogram.types.messages_and_media.message.Message, c
 			bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
 			return
 
-		smsg = bot.send_message(message.chat.id, '𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐢𝐧𝐠∝∝∝〇', reply_to_message_id=message.id)
+		smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
 		dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
 		dosta.start()
 		file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
@@ -256,36 +256,8 @@ def get_message_type(msg: pyrogram.types.messages_and_media.message.Message):
 	except: pass
 
 
-USAGE = """〇 **FOR PUBLIC CHATS**
+USAGE = """اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.
 
-__just send post/s link__
-
-〇 **FOR PRIVATE CHATS**
-
-__first send invite link of the chat (unnecessary if the account of string session already member of the chat)
-then send post/s link__
-
-〇 **FOR BOT CHATS**
-
-__send link with '/b/', bot's username and message id, you might want to install some unofficial client to get the id like below__
-
-```
-https://t.me/b/botusername/4321
-```
-
-〇 **MULTI POSTS**
-
-__send public/private posts link as explained above with formate "from - to" to send multiple messages like below__
-
-```
-https://t.me/xxxx/1001-1010
-
-https://t.me/c/xxxx/101 - 120
-```
-
-✍️ __Note that space in between doesn't matter__
-
-[❤️ OH Bhai ❤️](https://t.me/Opleech_WD)
 """
 
 
