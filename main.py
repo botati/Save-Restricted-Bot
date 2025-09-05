@@ -3,31 +3,37 @@
 
 import os
 import re
-import time
-import threading
-import json
 import asyncio
+import json
 import pyrogram
 from pyrogram import Client, filters
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
-
 # مكتبة للتعامل مع MongoDB بشكل غير متزامن
 import motor.motor_asyncio
 
-with open('config.json', 'r') as f: DATA = json.load(f)
-def getenv(var): return os.environ.get(var) or DATA.get(var, None)
+# --- دالة محسنة لجلب الإعدادات ---
+# This part safely loads config.json if it exists
+if os.path.exists('config.json'):
+    with open('config.json', 'r') as f:
+        DATA = json.load(f)
+else:
+    DATA = {}
+
+def getenv(var):
+    """Gets a variable from environment or config.json"""
+    return os.environ.get(var) or DATA.get(var)
 
 # --- الإعدادات والمتغيرات الأساسية ---
 # !! تأكد من وضع معلوماتك الصحيحة هنا أو في متغيرات البيئة !!
-API_ID = getenv("API_ID")
+API_ID = int(getenv("API_ID"))
 API_HASH = getenv("API_HASH")
 BOT_TOKEN = getenv("LOL_BOT_TOKEN")
 SESSION_STRING = getenv("STRING")
 MONGO_URI = getenv("MONGO_URI")
-OWNER_ID = getenv("OWNER_ID")
-DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME")
+OWNER_ID = int(getenv("OWNER_ID"))
+DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME", "SudoR2spr")
 
 # --- إعداد قاعدة البيانات ---
 db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
@@ -124,14 +130,13 @@ async def save_handler(client, message: Message):
 
         # بدء عملية الحفظ
         for msg_id in range(from_id, to_id + 1):
-            chat_id_str = datas[4] if "t.me/c/" in message.text else datas[3]
             
             try:
-                # محاولة الحفظ وإعادة التوجيه
                 if "t.me/c/" in message.text:
-                    chat_id = int("-100" + chat_id_str)
+                    chat_id = int("-100" + datas[4])
                     await acc.forward_messages(chat_id=user_id, from_chat_id=chat_id, message_ids=msg_id)
                 else: # للقنوات العامة
+                    chat_id_str = datas[3]
                     await bot.forward_messages(chat_id=user_id, from_chat_id=chat_id_str, message_ids=msg_id)
 
                 # زيادة العداد للمستخدم المجاني بعد كل عملية سحب ناجحة
@@ -140,40 +145,19 @@ async def save_handler(client, message: Message):
                 
                 await asyncio.sleep(2) # انتظار بسيط بين الرسائل
 
-            except (PeerIdInvalid, ChannelPrivate, ValueError):
+            except (PeerIdInvalid, ChannelPrivate):
                 await message.reply_text(
                     "❌ **فشل الوصول إلى الرسالة!**\n\n"
                     "السبب على الأغلب هو أن **الحساب المساعد ليس عضواً في القناة الخاصة**.\n"
                     "يرجى التأكد من إضافة الحساب المساعد إلى القناة ثم المحاولة مرة أخرى."
                 )
-                break # إيقاف الحلقة في حال حدوث خطأ
+                break 
             except Exception as e:
-                # إذا فشل التوجيه (بسبب الحماية)، استخدم الطريقة اليدوية
-                if "t.me/c/" in message.text:
-                    chat_id = int("-100" + chat_id_str)
-                    await handle_private_manual(message, chat_id, msg_id)
-                else:
-                    await handle_private_manual(message, chat_id_str, msg_id)
-
-                if not is_user_premium:
-                    await increment_user_usage(user_id)
-                await asyncio.sleep(2)
+                await message.reply_text(f"لم أتمكن من حفظ هذه الرسالة. السبب:\n`{e}`")
+                break
     else:
+        # If the message is not a link, send the start message
         await send_start(client, message)
-
-
-async def handle_private_manual(message, chat_id, msg_id):
-    """
-    يقوم بتنزيل وإعادة رفع المحتوى يدويًا
-    """
-    try:
-        msg = await acc.get_messages(chat_id, msg_id)
-        # سيتم إضافة منطق التنزيل والرفع هنا عند الحاجة
-        # حاليًا، forward_messages هي الطريقة الأكثر فعالية
-        await msg.copy(message.chat.id)
-
-    except Exception as e:
-        await message.reply_text(f"حدث خطأ أثناء المعالجة اليدوية: {e}")
 
 # أمر البدء
 @bot.on_message(filters.command(["start"]))
