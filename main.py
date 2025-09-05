@@ -1,4 +1,3 @@
-
 # WOODcraft https://github.com/SudoR2spr/Save-Restricted-Bot
 import pyrogram
 from pyrogram import Client, filters
@@ -67,14 +66,14 @@ def progress(current, total, message, type):
 # start command
 @bot.on_message(filters.command(["start"]))
 def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
-    # Send the reply photo first
-    bot.send_photo(
-        chat_id=message.chat.id,
-        photo="https://c.top4top.io/p_3535lbyx51.png",  # Photo link
-        caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
-        reply_to_message_id=message.id,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
-    )
+	# Send the reply photo first
+	bot.send_photo(
+		chat_id=message.chat.id,
+		photo="https://c.top4top.io/p_3535lbyx51.png", # Photo link
+		caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
+		reply_to_message_id=message.id,
+		reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
+	)
 
 @bot.on_message(filters.text)
 def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
@@ -155,82 +154,84 @@ def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_me
 
 # handle private
 def handle_private(message: pyrogram.types.messages_and_media.message.Message, chatid: int, msgid: int):
-    # --- بداية التعديل ---
-    try:
-        # محاولة جلب الرسالة من القناة الخاصة
-        msg: pyrogram.types.messages_and_media.message.Message = acc.get_messages(chatid, msgid)
-    
-    except (PeerIdInvalid, ChannelPrivate, ValueError):
-        # في حال فشل الوصول بسبب الصلاحيات، يتم إرسال هذه الرسالة للمستخدم
-        bot.send_message(
-            message.chat.id,
-            "❌ **فشل الوصول إلى الرسالة!**\n\n"
-            "السبب على الأغلب هو أن **الحساب المساعد ليس عضواً في القناة الخاصة**.\n"
-            "يرجى التأكد من إضافة الحساب المساعد إلى القناة ثم المحاولة مرة أخرى.",
-            reply_to_message_id=message.id
-        )
-        return  # إيقاف الدالة هنا لمنع المزيد من الأخطاء
+	try:
+		# محاولة جلب الرسالة من القناة الخاصة
+		msg: pyrogram.types.messages_and_media.message.Message = acc.get_messages(chatid, msgid)
+	
+	except (PeerIdInvalid, ChannelPrivate, ValueError):
+		# في حال فشل الوصول بسبب الصلاحيات، يتم إرسال هذه الرسالة للمستخدم
+		bot.send_message(
+			message.chat.id,
+			"❌ **فشل الوصول إلى الرسالة!**\n\n"
+			"السبب على الأغلب هو أن **الحساب المساعد ليس عضواً في القناة الخاصة**.\n"
+			"يرجى التأكد من إضافة الحساب المساعد إلى القناة ثم المحاولة مرة أخرى.",
+			reply_to_message_id=message.id
+		)
+		return # إيقاف الدالة هنا لمنع المزيد من الأخطاء
 
-    except Exception as e:
-        # لأي أخطاء أخرى غير متوقعة
-        bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
-        return
-    # --- نهاية التعديل ---
+	except Exception as e:
+		# لأي أخطاء أخرى غير متوقعة
+		bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
+		return
 
-    msg_type = get_message_type(msg)
+	msg_type = get_message_type(msg)
 
-    if "Text" == msg_type:
-        bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
-        return
+	if "Text" == msg_type:
+		# --- بداية التعديل ---
+		# التحقق من وجود نص قبل إرساله لمنع خطأ الرسالة الفارغة
+		if msg.text:
+			bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
+		# --- نهاية التعديل ---
+		return
 
-    smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
-    dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
-    dosta.start()
-    file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
-    os.remove(f'{message.id}downstatus.txt')
+	smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
+	dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
+	dosta.start()
+	file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
+	os.remove(f'{message.id}downstatus.txt')
 
-    upsta = threading.Thread(target=lambda:upstatus(f'{message.id}upstatus.txt',smsg),daemon=True)
-    upsta.start()
-    
-    if "Document" == msg_type:
-        try:
-            thumb = acc.download_media(msg.document.thumbs[0].file_id)
-        except: thumb = None
-        
-        bot.send_document(message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
-        if thumb != None: os.remove(thumb)
+	upsta = threading.Thread(target=lambda:upstatus(f'{message.id}upstatus.txt',smsg),daemon=True)
+	upsta.start()
+	
+	if "Document" == msg_type:
+		try:
+			thumb = acc.download_media(msg.document.thumbs[0].file_id)
+		except: thumb = None
+		
+		bot.send_document(message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+		if thumb != None: os.remove(thumb)
 
-    elif "Video" == msg_type:
-        try: 
-            thumb = acc.download_media(msg.video.thumbs[0].file_id)
-        except: thumb = None
+	elif "Video" == msg_type:
+		try: 
+			thumb = acc.download_media(msg.video.thumbs[0].file_id)
+		except: thumb = None
 
-        bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
-        if thumb != None: os.remove(thumb)
+		bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+		if thumb != None: os.remove(thumb)
 
-    elif "Animation" == msg_type:
-        bot.send_animation(message.chat.id, file, reply_to_message_id=message.id)
-        
-    elif "Sticker" == msg_type:
-        bot.send_sticker(message.chat.id, file, reply_to_message_id=message.id)
+	elif "Animation" == msg_type:
+		bot.send_animation(message.chat.id, file, reply_to_message_id=message.id)
+		
+	elif "Sticker" == msg_type:
+		bot.send_sticker(message.chat.id, file, reply_to_message_id=message.id)
 
-    elif "Voice" == msg_type:
-        bot.send_voice(message.chat.id, file, caption=msg.caption, thumb=thumb, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+	elif "Voice" == msg_type:
+		bot.send_voice(message.chat.id, file, caption=msg.caption, thumb=thumb, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
 
-    elif "Audio" == msg_type:
-        try:
-            thumb = acc.download_media(msg.audio.thumbs[0].file_id)
-        except: thumb = None
-            
-        bot.send_audio(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])    
-        if thumb != None: os.remove(thumb)
+	elif "Audio" == msg_type:
+		try:
+			thumb = acc.download_media(msg.audio.thumbs[0].file_id)
+		except: thumb = None
+			
+		bot.send_audio(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])   
+		if thumb != None: os.remove(thumb)
 
-    elif "Photo" == msg_type:
-        bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
+	elif "Photo" == msg_type:
+		bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
 
-    os.remove(file)
-    if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
-    bot.delete_messages(message.chat.id,[smsg.id])
+	os.remove(file)
+	if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
+	bot.delete_messages(message.chat.id,[smsg.id])
 
 
 # get the type of message
@@ -283,4 +284,3 @@ USAGE = """اهــلا عــزيـزي الـمـسـتـخدم انـا مس�
 
 # infinty polling
 bot.run()
-
