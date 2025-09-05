@@ -32,8 +32,8 @@ API_HASH = getenv("API_LOL_HASH")
 BOT_TOKEN = getenv("LOL_BOT_TOKEN")
 SESSION_STRING = getenv("STRING")
 MONGO_URI = getenv("MONGO_URI")
+DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME")
 OWNER_ID = int(getenv("OWNER_ID"))
-DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME", "SudoR2spr")
 
 # --- إعداد قاعدة البيانات ---
 db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
