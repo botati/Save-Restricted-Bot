@@ -9,30 +9,19 @@ from pyrogram import Client, filters
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
-if os.path.exists('config.json'):
-    with open('config.json', 'r') as f:
-        DATA = json.load(f)
-else:
-    DATA = {}
-
-# هذا هو تعريف الدالة المفقودة
-def getenv(var):
-    """Gets a variable from environment or config.json"""
-    return os.environ.get(var) or DATA.get(var)
-
 
 # مكتبة للتعامل مع MongoDB بشكل غير متزامن
 import motor.motor_asyncio
 
 # --- الإعدادات والمتغيرات الأساسية ---
 # !! تأكد من وضع معلوماتك الصحيحة هنا أو في متغيرات البيئة !!
-API_ID = int(getenv("API_ID", "20182797")) # ضع رقم API_ID الخاص بك
-API_HASH = getenv("API_HASH", "cb730814928cca90368dd2df4cea4e38") # ضع API_HASH الخاص بك
-BOT_TOKEN = getenv("LOL_BOT_TOKEN", "7258603453:AAEXAbOth7N7Nm0SG7DZEmMuhSxWIzC_QLU") # ضع توكن البوت
-SESSION_STRING = getenv("STRING", "BAEz9w0AdQTv2ovxwDITO-1evhJ5JqCiGL9FnBYV79Y2hdDZHa1Emt_XQs1XL7lEhR6aXvt3OPRp2HtKmxzePrLhNfo2arIkQPhkvD2vUK-A3JRvsVuJ5UqS4-wIVRmM5FHuY43wycJDzlWChzGf1FBjo1Dp9VAzqegfp30_kxyXizKCf0FmGsQssTjuzOhppKYW37_z77-8K0wvgG_Cwqe9zPOFUcyXx7DaqgSPAmOqKJj8lCBNjayzC0iSF0FOcOtrRdlqulFSksYaFn9zywgbtRwFGcFh-FeyjFrR74422VFiZuysGc3PEqyBor3ZSlFK2dZFydoGp7GFGqY_f0ln8KeXmAAAAAHn5H6mAA") # ضع جلسة الحساب المساعد
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://public:abishnoimf@cluster0.rqk6ihd.mongodb.net/?retryWrites=true&w=majority") # !! ضع رابط قاعدة بياناتك هنا !!
-OWNER_ID = int(getenv("OWNER_ID", "5838811608")) # !! ضع معرف حسابك (المالك) هنا !!
-DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME", "EG_28") # !! ضع معرف المطور للتواصل !!
+API_ID = getenv("API_ID")
+API_HASH = getenv("API_HASH")
+BOT_TOKEN = getenv("LOL_BOT_TOKEN")
+SESSION_STRING = getenv("STRING")
+MONGO_URI = getenv("MONGO_URI")
+OWNER_ID = getenv("OWNER_ID")
+DEVELOPER_USERNAME = getenv("DEVELOPER_USERNAME")
 
 # --- إعداد قاعدة البيانات ---
 db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
