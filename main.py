@@ -42,6 +42,55 @@ def is_admin(_, __, message):
     return message.from_user.id == admin_id
 admin_filter = filters.create(is_admin)
 
+
+# help command
+@bot.on_message(filters.command(["help"]))
+def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
+    help_text = """
+   🥇 **أهلاً بك في قائمة المساعدة!** 🥇
+
+    هـذا قـائـمـة الـجوكـر السـهـلـه و البـسـيـطة ↪️🏆
+
+     🚀 **1. لـحفـظ مـنـشـور واحـد:**
+     فقط قم بإرسال رابط المنشور العام أو الخاص. 
+    - `https://t.me/username/123`
+    - `https://t.me/c/1234567890/456`
+
+   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد **  فقط ارسـل🚀🔥
+   
+    - /get
+
+    **3. للانضمام إلى قناة خاصة:**
+    إذا كانت القناة خاصة، يجب أن ينضم الحساب المساعد أولاً. أرسل رابط الدعوة الخاص بالقناة للبوت.
+    - `https://t.me/+aBcDeFgHiJkLmNoP`
+
+    **ملاحظة هامة:** ‼️
+    - يجب أن يكون الحساب المساعد عضواً في القناة الخاصة لتتمكن من سحب المحتوى منها.
+    """
+    bot.send_message(
+        chat_id=message.chat.id,
+        text=help_text,
+        reply_to_message_id=message.id,
+        disable_web_page_preview=True
+    )
+	
+	
+
+@bot.on_message(filters.command(["get"]))
+def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
+    help_text = """
+  **لـتشـغـيـل السـحب الـمتـعدد تـابع الخـطواط** 🫴🏻✅
+    أرسل الرابط بهذا الشكل (رقم البداية - رقم النهاية).
+    - `https://t.me/username/123-130`
+**و سيقوم ببـدأ سـحب المنشورات** 🚀🔥
+    """
+    bot.send_message(
+        chat_id=message.chat.id,
+        text=help_text,
+        reply_to_message_id=message.id,
+        disable_web_page_preview=True
+    )
+
 # --- أوامر المالك للتحكم في المشتركين (تم تحديثها) ---
 @bot.on_message(filters.command("adduser") & admin_filter)
 def add_user(client, message):
