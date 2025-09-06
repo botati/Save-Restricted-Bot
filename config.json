@@ -3,7 +3,7 @@
     "API_LOL_ID": "20182797",
     "API_LOL_HASH": "cb730814928cca90368dd2df4cea4e38",
     "PORT": "3000",
-    "MONGO_DB_URI": "mongodb+srv://public:abishnoimf@cluster0.rqk6ihd.mongodb.net/?retryWrites=true&w=majority",
+    "MONGO_DB_URI": "mongodb+srv://malamryky52_db_user:EGLYRkpjyVLzkdrl@cluster0.94zn99h.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
     "ADMIN_ID": "5838811608",
     "STRING": "BAEz9w0AdQTv2ovxwDITO-1evhJ5JqCiGL9FnBYV79Y2hdDZHa1Emt_XQs1XL7lEhR6aXvt3OPRp2HtKmxzePrLhNfo2arIkQPhkvD2vUK-A3JRvsVuJ5UqS4-wIVRmM5FHuY43wycJDzlWChzGf1FBjo1Dp9VAzqegfp30_kxyXizKCf0FmGsQssTjuzOhppKYW37_z77-8K0wvgG_Cwqe9zPOFUcyXx7DaqgSPAmOqKJj8lCBNjayzC0iSF0FOcOtrRdlqulFSksYaFn9zywgbtRwFGcFh-FeyjFrR74422VFiZuysGc3PEqyBor3ZSlFK2dZFydoGp7GFGqY_f0ln8KeXmAAAAAHn5H6mAA"
 }
