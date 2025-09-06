@@ -5,7 +5,6 @@ from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameN
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
 from pyrogram.enums import ParseMode
-import pyrogram.sync # <-- تمت إضافة هذا السطر
 
 import time
 import os
@@ -22,41 +21,28 @@ api_id = getenv("API_LOL_ID")
 ss = getenv("STRING")
 mongo_uri = getenv("MONGO_DB_URI")
 admin_id = int(getenv("ADMIN_ID"))
-TRIAL_LIMIT = 20  # الحد الأقصى للمنشورات في الفترة التجريبية
+TRIAL_LIMIT = 1  # الحد الأقصى للمنشورات في الفترة التجريبية
 
 # --- ربط قاعدة البيانات ---
 client = MongoClient(mongo_uri)
 db = client['PaidBotDB']
+# تم تغيير اسم الـ collection ليعكس الهيكل الجديد
 bot_users_collection = db['bot_users']
-session_collection = db['sessions'] # <-- مجموعة جديدة لحفظ الجلسات
 
-# --- إعدادات البوت ---
+# --- إعدادات البوت والحساب المساعد ---
 bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
-
-# --- [تعديل] إعداد الحساب المساعد مع الحفظ في قاعدة البيانات ---
-acc = None
-# محاولة تحميل الجلسة من قاعدة البيانات أولاً
-session_doc = session_collection.find_one({"_id": "myacc_session"})
-# استخدام الجلسة من قاعدة البيانات إن وجدت، وإلا استخدامها من ملف الإعدادات
-active_session_string = session_doc.get("session_string") if session_doc else ss
-
-if active_session_string:
-    acc = Client("myacc", api_id=api_id, api_hash=api_hash, session_string=active_session_string)
+if ss:
+    acc = Client("myacc", api_id=api_id, api_hash=api_hash, session_string=ss)
     acc.start()
-    # حفظ الجلسة المبدئية في قاعدة البيانات إذا لم تكن موجودة
-    if not session_doc and ss:
-        session_collection.update_one(
-            {"_id": "myacc_session"},
-            {"$set": {"session_string": ss}},
-            upsert=True
-        )
+else:
+    acc = None
 
 # --- فلتر للتحقق من أن المستخدم هو المالك ---
 def is_admin(_, __, message):
     return message.from_user.id == admin_id
 admin_filter = filters.create(is_admin)
 
-# ... (جميع دوال وأوامر المالك والمساعدة تبقى كما هي بدون تغيير) ...
+
 # help command
 @bot.on_message(filters.command(["help"]))
 def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
@@ -70,7 +56,7 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
     - `https://t.me/username/123`
     - `https://t.me/c/1234567890/456`
 
-   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد ** فقط ارسـل🚀🔥
+   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد **  فقط ارسـل🚀🔥
    
     - /get
 
@@ -87,6 +73,8 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
         reply_to_message_id=message.id,
         disable_web_page_preview=True
     )
+	
+	
 
 @bot.on_message(filters.command(["get"]))
 def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
@@ -103,6 +91,7 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
         disable_web_page_preview=True
     )
 
+# --- أوامر المالك للتحكم في المشتركين (تم تحديثها) ---
 @bot.on_message(filters.command("adduser") & admin_filter)
 def add_user(client, message):
     if len(message.command) < 2:
@@ -153,6 +142,7 @@ def list_users(client, message):
     else:
         message.reply_text("لا يوجد مشتركين دائمين حالياً.")
 
+# --- الأكواد الأساسية للبوت (بدون تغيير) ---
 def downstatus(statusfile,message):
 	while True:
 		if os.path.exists(statusfile): break
@@ -196,6 +186,9 @@ def send_start(client, message):
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
     )
 
+# --- بقية الأوامر مثل help و get تبقى كما هي ---
+# ... (الكود الخاص بأوامر help و get) ...
+
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users"]))
 def save(client, message):
     user_id = message.from_user.id
@@ -204,14 +197,19 @@ def save(client, message):
     if user_id != admin_id:
         user_data = bot_users_collection.find_one({'user_id': user_id})
 
+        # إذا لم يكن المستخدم موجودًا (لأمان إضافي)، قم بإضافته
         if not user_data:
             bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
             user_data = bot_users_collection.find_one({'user_id': user_id})
 
+        # إذا كان المستخدم مشتركًا، اسمح له بالمرور
         if user_data.get('is_subscribed', False):
             pass
+        # إذا لم يكن مشتركًا، تحقق من الرصيد
         else:
             usage_count = user_data.get('usage_count', 0)
+            
+            # حساب عدد المنشورات المطلوبة في هذه المرة
             posts_to_download = 0
             if "https://t.me/" in message.text:
                 try:
@@ -221,7 +219,7 @@ def save(client, message):
                     toID = int(temp[1].strip()) if len(temp) > 1 else fromID
                     posts_to_download = toID - fromID + 1
                 except (ValueError, IndexError):
-                    posts_to_download = 1
+                    posts_to_download = 1 # افتراض أنه منشور واحد إذا فشل التحليل
 
             if usage_count >= TRIAL_LIMIT:
                 bot.send_message(message.chat.id, f"لقد استهلكت رصيدك التجريبي ({TRIAL_LIMIT} منشور).\nللاستمرار في استخدام البوت، يرجى التواصل مع المالك للاشتراك.", reply_to_message_id=message.id)
@@ -232,30 +230,21 @@ def save(client, message):
                 bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} منشور متبقي في الفترة التجريبية.", reply_to_message_id=message.id)
                 return
     
-    # --- [تعديل] جزء الانضمام إلى القنوات مع حفظ الجلسة ---
+    # --- بقية الكود الأصلي (من هنا يبدأ التنفيذ بعد التحقق) ---
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
         if acc is None:
-            bot.send_message(message.chat.id, "عذراً, الحساب المساعد غير مفعل.", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,f"عـذرا خـطـأ غـير مفهوم ‼️‼️", reply_to_message_id=message.id)
             return
         try:
-            acc.join_chat(message.text)
-            
-            # --[الخطوة الجديدة]: حفظ الجلسة المحدثة في قاعدة البيانات
-            new_ss = pyrogram.sync.run(acc.export_session_string())
-            session_collection.update_one(
-                {"_id": "myacc_session"},
-                {"$set": {"session_string": new_ss}},
-                upsert=True
-            )
-            
-            bot.send_message(message.chat.id, "تم الانضمام وحفظ الجلسة بنجاح ✅🚀", reply_to_message_id=message.id)
-
+            try: acc.join_chat(message.text)
+            except Exception as e:
+                bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
+                return
+            bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
         except UserAlreadyParticipant:
-            bot.send_message(message.chat.id, "الحساب المساعد موجود بالفعل في هذه القناة 🔥🚀", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
         except InviteHashExpired:
-            bot.send_message(message.chat.id, "عذراً, رابط الدعوة هذا منتهي الصلاحية أو غير صالح ⚠️‼️", reply_to_message_id=message.id)
-        except Exception as e:
-            bot.send_message(message.chat.id, f"حدث خطأ أثناء محاولة الانضمام: __{e}__", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
 
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
@@ -278,6 +267,7 @@ def save(client, message):
                     bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
                     return
                 handle_private(message,chatid,msgid)
+            # ... (بقية كود السحب يبقى كما هو)
             else:
                 username = datas[3]
                 try: msg = bot.get_messages(username,msgid)
@@ -297,6 +287,7 @@ def save(client, message):
                     except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
             time.sleep(3)
 
+# ... (بقية الدوال handle_private, get_message_type تبقى كما هي)
 def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
