@@ -4,6 +4,7 @@ from pyrogram import Client, filters
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
+from pyrogram.enums import ParseMode
 
 import time
 import os
@@ -43,7 +44,11 @@ admin_filter = filters.create(is_admin)
 @bot.on_message(filters.command("adduser") & admin_filter)
 def add_user(client, message):
     if len(message.command) < 2:
-        message.reply_text("الرجاء استخدام الأمر هكذا: `/adduser <user_id>`")
+        # تم تعديل هذا السطر
+        message.reply_text(
+            "الرجاء استخدام الأمر هكذا: `/adduser USER_ID`",
+            parse_mode=ParseMode.MARKDOWN
+        )
         return
     try:
         user_id_to_add = int(message.command[1])
@@ -60,7 +65,11 @@ def add_user(client, message):
 @bot.on_message(filters.command("deluser") & admin_filter)
 def delete_user(client, message):
     if len(message.command) < 2:
-        message.reply_text("الرجاء استخدام الأمر هكذا: `/deluser <user_id>`")
+        # تم تعديل هذا السطر
+        message.reply_text(
+            "الرجاء استخدام الأمر هكذا: `/deluser USER_ID`",
+            parse_mode=ParseMode.MARKDOWN
+        )
         return
     try:
         user_id_to_delete = int(message.command[1])
