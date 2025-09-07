@@ -252,14 +252,29 @@ def save(client, message):
 # ... (بقية الدوال handle_private, get_message_type تبقى كما هي)
 def handle_private(message, chatid, msgid):
     try:
+        # محاولة جلب الرسالة باستخدام الحساب المساعد
         msg = acc.get_messages(chatid, msgid)
-    except (PeerIdInvalid, ChannelPrivate, ValueError):
-        bot.send_message(message.chat.id, "❌ **فشل الوصول إلى الرسالة!**...", reply_to_message_id=message.id)
+        
+    # [تعديل] التعامل مع خطأ عدم وجود الحساب المساعد في القناة
+    except PeerIdInvalid:
+        bot.send_message(
+            message.chat.id,
+            "❌ **فشل الوصول إلى القناة!**\n\n"
+            "يبدو أن الحساب المساعد **ليس عضوًا** في هذه القناة الخاصة.\n\n"
+            "**الحل:** يرجى إرسال رابط دعوة القناة أولاً لينضم إليها الحساب المساعد، ثم حاول مجددًا.",
+            reply_to_message_id=message.id
+        )
+        return # إيقاف الدالة هنا
+
+    # التعامل مع الأخطاء الأخرى كما كان في السابق
+    except (ChannelPrivate, ValueError):
+        bot.send_message(message.chat.id, "❌ **فشل الوصول إلى الرسالة!**\nتأكد من صحة الرابط وأن لديك صلاحية الوصول.", reply_to_message_id=message.id)
         return
     except Exception as e:
         bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
         return
 
+    # --- بقية الكود داخل الدالة يبقى كما هو ---
     msg_type = get_message_type(msg)
     if "Text" == msg_type:
         bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
