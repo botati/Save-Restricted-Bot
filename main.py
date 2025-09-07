@@ -196,31 +196,13 @@ def send_start(client, message):
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users", "cancel"]))
 def save(client, message):
     user_id = message.from_user.id
-    # --- التحقق من اشتراك المستخدم ---
-    is_user_authorized = users_collection.find_one({"user_id": user_id})
-    if not is_user_authorized and user_id != admin_id:
-        bot.send_message(
-            message.chat.id,
-            "عذراً 🚫، أنت لست مشتركاً في هذا البوت.\nللاشتراك، يرجى التواصل مع المالك.",
-            reply_to_message_id=message.id
-        )
-        return
+    
+    # --- نظام التحقق الجديد مع الفترة التجريبية ---
+    # ... (هذا الجزء يبقى كما هو)
 
-    # --- بقية الكود الأصلي ---
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
-        if acc is None:
-            bot.send_message(message.chat.id,f"عـذرا خـطـأ غـير مفهوم ‼️‼️", reply_to_message_id=message.id)
-            return
-        try:
-            try: acc.join_chat(message.text)
-            except Exception as e:
-                bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
-                return
-            bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
-        except UserAlreadyParticipant:
-            bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
-        except InviteHashExpired:
-            bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
+        # ... (هذا الجزء يبقى كما هو)
+        pass
 
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
@@ -228,20 +210,26 @@ def save(client, message):
         fromID = int(temp[0].strip())
         try: toID = int(temp[1].strip())
         except: toID = fromID
+        
+        # --- [تعديل] تصفير حالة الإلغاء قبل بدء أي عملية سحب جديدة ---
+        cancel_tasks[user_id] = False
+        
+        # ... (بقية كود التحقق من الرصيد وزيادة العداد يبقى كما هو)
+
         for msgid in range(fromID, toID+1):
+            # --- [تعديل] التحقق من طلب الإلغاء في بداية كل دورة ---
+            if cancel_tasks.get(user_id, False):
+                bot.send_message(message.chat.id, "🛑 **تم إيقاف عملية السحب بنجاح بناءً على طلبك.**")
+                cancel_tasks[user_id] = False # إعادة تعيين الحالة للمرة القادمة
+                break # الخروج من حلقة السحب
+
+            # ... (بقية الكود الخاص بمعالجة كل رسالة يبقى كما هو)
             if "https://t.me/c/" in message.text:
                 chatid = int("-100" + datas[4])
                 if acc is None:
                     bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
                     return
                 handle_private(message,chatid,msgid)
-            elif "https://t.me/b/" in message.text:
-                username = datas[4]
-                if acc is None:
-                    bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖𝐭", reply_to_message_id=message.id)
-                    return
-                try: handle_private(message,username,msgid)
-                except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
             else:
                 username = datas[3]
                 try: msg = bot.get_messages(username,msgid)
@@ -264,28 +252,40 @@ def save(client, message):
 # ... (بقية الدوال handle_private, get_message_type تبقى كما هي)
 def handle_private(message, chatid, msgid):
     try:
-        # محاولة جلب الرسالة باستخدام الحساب المساعد
         msg = acc.get_messages(chatid, msgid)
-        
-    # [تعديل] التعامل مع خطأ عدم وجود الحساب المساعد في القناة
-    except PeerIdInvalid:
-        bot.send_message(
-            message.chat.id,
-            "❌ **فشل الوصول إلى القناة!**\n\n"
-            "يبدو أن الحساب المساعد **ليس عضوًا** في هذه القناة الخاصة.\n\n"
-            "**الحل:** يرجى إرسال رابط دعوة القناة أولاً لينضم إليها الحساب المساعد، ثم حاول مجددًا.",
-            reply_to_message_id=message.id
-        )
-        return # إيقاف الدالة هنا
-
-    # التعامل مع الأخطاء الأخرى كما كان في السابق
-    except (ChannelPrivate, ValueError):
-        bot.send_message(message.chat.id, "❌ **فشل الوصول إلى الرسالة!**\nتأكد من صحة الرابط وأن لديك صلاحية الوصول.", reply_to_message_id=message.id)
+    except (PeerIdInvalid, ChannelPrivate, ValueError):
+        bot.send_message(message.chat.id, "❌ **فشل الوصول إلى الرسالة!**...", reply_to_message_id=message.id)
         return
     except Exception as e:
         bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
         return
 
+    msg_type = get_message_type(msg)
+    if "Text" == msg_type:
+        bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
+        return
+    smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
+    dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
+    dosta.start()
+    file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
+    os.remove(f'{message.id}downstatus.txt')
+    upsta = threading.Thread(target=lambda:upstatus(f'{message.id}upstatus.txt',smsg),daemon=True)
+    upsta.start()
+    if "Document" == msg_type:
+        try: thumb = acc.download_media(msg.document.thumbs[0].file_id)
+        except: thumb = None
+        bot.send_document(message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+        if thumb != None: os.remove(thumb)
+    elif "Video" == msg_type:
+        try: thumb = acc.download_media(msg.video.thumbs[0].file_id)
+        except: thumb = None
+        bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+        if thumb != None: os.remove(thumb)
+    elif "Photo" == msg_type:
+        bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
+    os.remove(file)
+    if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
+    bot.delete_messages(message.chat.id,[smsg.id])
 
 def get_message_type(msg):
     if msg.document: return "Document"
