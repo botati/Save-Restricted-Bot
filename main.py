@@ -200,9 +200,39 @@ def save(client, message):
     # --- نظام التحقق الجديد مع الفترة التجريبية ---
     # ... (هذا الجزء يبقى كما هو)
 
-    if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
-        # ... (هذا الجزء يبقى كما هو)
-        pass
+if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
+        if acc is None:
+            bot.send_message(message.chat.id, "الحساب المساعد غير مفعل، لا يمكن الانضمام.", reply_to_message_id=message.id)
+            return
+
+        invite_link = message.text
+        try:
+            # محاولة الانضمام باستخدام الرابط
+            acc.join_chat(invite_link)
+            bot.send_message(message.chat.id, "✅ تم انضمام الحساب المساعد بنجاح!", reply_to_message_id=message.id)
+
+        # التعامل مع الأخطاء الشائعة برسائل واضحة
+        except InviteHashExpired:
+            bot.send_message(
+                message.chat.id,
+                "⚠️ **فشل الانضمام!**\n\nالسبب: رابط الدعوة منتهي الصلاحية أو تم إبطاله.",
+                reply_to_message_id=message.id
+            )
+        except UserAlreadyParticipant:
+             bot.send_message(
+                message.chat.id,
+                "ℹ️ الحساب المساعد عضو بالفعل في هذه القناة.",
+                reply_to_message_id=message.id
+            )
+        # التعامل مع أي خطأ آخر
+        except Exception as e:
+            print(e) # لطباعة الخطأ الكامل في سجلات التشغيل
+            bot.send_message(
+                message.chat.id,
+                f"❌ **حدث خطأ غير متوقع أثناء الانضمام.**\n\n`{e}`\n\nتأكد من أن الرابط صحيح وغير منتهي الصلاحية.",
+                reply_to_message_id=message.id
+            )
+        return # إيقاف الدالة بعد محاولة الانضمام
 
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
