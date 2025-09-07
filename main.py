@@ -193,29 +193,7 @@ def send_start(client, message):
     )
 
 
-# --- [جديد] أوامر للتحكم في صورة الغلاف المخصصة ---
-@bot.on_message(filters.command("setthumb"))
-def set_thumbnail(client, message: Message):
-    user_id = message.from_user.id
-    if message.reply_to_message and message.reply_to_message.photo:
-        # حفظ معرف الصورة في القاموس
-        user_thumbnails[user_id] = message.reply_to_message.photo.file_id
-        message.reply_text("✅ **تم حفظ صورة الغلاف بنجاح!**\nسيتم تطبيقها على الفيديوهات القادمة.")
-    else:
-        message.reply_text("⚠️ **خطأ!**\nيرجى الرد على صورة باستخدام الأمر `/setthumb` لتعيينها كغلاف.")
-
-@bot.on_message(filters.command("delthumb"))
-def delete_thumbnail(client, message: Message):
-    user_id = message.from_user.id
-    if user_id in user_thumbnails:
-        del user_thumbnails[user_id]
-        message.reply_text("🗑️ **تم حذف صورة الغلاف المخصصة.**\nسيتم الآن استخدام الأغلفة الأصلية.")
-    else:
-        message.reply_text("ℹ️ لم تقم بتعيين أي صورة غلاف مخصصة.")
-
-
-
-@bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users", "cancel", "setthumb", "delthumb"]))
+@bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users", "cancel"]))
 def save(client, message):
     user_id = message.from_user.id
     
