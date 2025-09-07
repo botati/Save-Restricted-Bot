@@ -21,6 +21,9 @@ ss = getenv("STRING")
 mongo_uri = getenv("MONGO_DB_URI")
 admin_id = int(getenv("ADMIN_ID"))
 
+# --- [جديد] قاموس لتتبع عمليات الإلغاء لكل مستخدم ---
+cancel_tasks = {}
+
 # --- ربط قاعدة البيانات ---
 client = MongoClient(mongo_uri)
 db = client['PaidBotDB']
@@ -29,8 +32,8 @@ users_collection = db['users']
 # --- إعدادات البوت والحساب المساعد ---
 bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 if ss:
-	acc = Client("myacc" ,api_id=api_id, api_hash=api_hash, session_string=ss)
-	acc.start()
+    acc = Client("myacc", api_id=api_id, api_hash=api_hash, session_string=ss)
+    acc.start()
 else:
     acc = None
 
@@ -38,6 +41,15 @@ else:
 def is_admin(_, __, message):
     return message.from_user.id == admin_id
 admin_filter = filters.create(is_admin)
+
+# --- [جديد] أمر لإلغاء عملية السحب الجارية ---
+@bot.on_message(filters.command("cancel"))
+def cancel_download(client, message):
+    user_id = message.from_user.id
+    # يتم تعيين حالة الإلغاء إلى "صحيح" للمستخدم الحالي
+    cancel_tasks[user_id] = True
+    message.reply_text("✅ **تم إرسال طلب الإلغاء...**\nسيتم إيقاف عملية السحب عند الرسالة التالية.")
+
 
 # --- أوامر المالك للتحكم في المشتركين ---
 @bot.on_message(filters.command("adduser") & admin_filter)
@@ -82,7 +94,6 @@ def list_users(client, message):
         message.reply_text("لا يوجد مشتركين حالياً.")
 
 # --- الأكواد الأساسية للبوت (بدون تغيير) ---
-
 def downstatus(statusfile,message):
 	while True:
 		if os.path.exists(statusfile): break
@@ -132,7 +143,7 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
     - `https://t.me/username/123`
     - `https://t.me/c/1234567890/456`
 
-   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد **  فقط ارسـل🚀🔥
+   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد ** فقط ارسـل🚀🔥
    
     - /get
 
@@ -149,8 +160,6 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
         reply_to_message_id=message.id,
         disable_web_page_preview=True
     )
-	
-	
 
 @bot.on_message(filters.command(["get"]))
 def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
@@ -167,7 +176,7 @@ def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_a
         disable_web_page_preview=True
     )
 
-@bot.on_message(filters.text & ~filters.command(["adduser", "deluser", "users"]))
+@bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users", "cancel"]))
 def save(client, message):
     user_id = message.from_user.id
     # --- التحقق من اشتراك المستخدم ---
@@ -202,7 +211,18 @@ def save(client, message):
         fromID = int(temp[0].strip())
         try: toID = int(temp[1].strip())
         except: toID = fromID
+        
+        # --- [تعديل] تصفير حالة الإلغاء قبل بدء أي عملية سحب جديدة ---
+        cancel_tasks[user_id] = False
+        
         for msgid in range(fromID, toID+1):
+            
+            # --- [تعديل] التحقق من طلب الإلغاء في بداية كل دورة ---
+            if cancel_tasks.get(user_id, False):
+                bot.send_message(message.chat.id, "🛑 **تم إيقاف عملية السحب بنجاح بناءً على طلبك.**")
+                cancel_tasks[user_id] = False # إعادة تعيين الحالة للمرة القادمة
+                break # الخروج من حلقة السحب
+
             if "https://t.me/c/" in message.text:
                 chatid = int("-100" + datas[4])
                 if acc is None:
@@ -255,7 +275,7 @@ def handle_private(message, chatid, msgid):
     if "Text" == msg_type:
         bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
         return
-    smsg = bot.send_message(message.chat.id, 'جـــار الــتـحـمـيـل ✅🚀', reply_to_message_id=message.id)
+    smsg = bot.send_message(message.chat.id, 'جـــار الــت-حـمـيـل ✅🚀', reply_to_message_id=message.id)
     dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
     dosta.start()
     file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
