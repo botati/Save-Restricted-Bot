@@ -198,20 +198,44 @@ def save(client, message):
     user_id = message.from_user.id
     
     # --- نظام التحقق الجديد مع الفترة التجريبية ---
-    # ... (هذا الجزء يبقى كما هو)
+    if user_id != admin_id:
+        user_data = bot_users_collection.find_one({'user_id': user_id})
+        if not user_data:
+            bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
+            user_data = bot_users_collection.find_one({'user_id': user_id})
 
-if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
+        if user_data.get('is_subscribed', False):
+            pass
+        else:
+            usage_count = user_data.get('usage_count', 0)
+            posts_to_download = 0
+            if "https://t.me/" in message.text:
+                try:
+                    datas = message.text.split("/")
+                    temp = datas[-1].replace("?single","").split("-")
+                    fromID = int(temp[0].strip())
+                    toID = int(temp[1].strip()) if len(temp) > 1 else fromID
+                    posts_to_download = toID - fromID + 1
+                except (ValueError, IndexError):
+                    posts_to_download = 1
+            if usage_count >= TRIAL_LIMIT:
+                bot.send_message(message.chat.id, f"لقد استهلكت رصيدك التجريبي ({TRIAL_LIMIT} منشور).\nللاستمرار في استخدام البوت، يرجى التواصل مع المالك للاشتراك.", reply_to_message_id=message.id)
+                return
+            if usage_count + posts_to_download > TRIAL_LIMIT:
+                remaining = TRIAL_LIMIT - usage_count
+                bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} منشور متبقي في الفترة التجريبية.", reply_to_message_id=message.id)
+                return
+
+    # --- [تصحيح] تم وضع هذا الجزء داخل الدالة مع المسافة البادئة الصحيحة ---
+    if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
         if acc is None:
             bot.send_message(message.chat.id, "الحساب المساعد غير مفعل، لا يمكن الانضمام.", reply_to_message_id=message.id)
             return
 
         invite_link = message.text
         try:
-            # محاولة الانضمام باستخدام الرابط
             acc.join_chat(invite_link)
             bot.send_message(message.chat.id, "✅ تم انضمام الحساب المساعد بنجاح!", reply_to_message_id=message.id)
-
-        # التعامل مع الأخطاء الشائعة برسائل واضحة
         except InviteHashExpired:
             bot.send_message(
                 message.chat.id,
@@ -224,15 +248,14 @@ if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
                 "ℹ️ الحساب المساعد عضو بالفعل في هذه القناة.",
                 reply_to_message_id=message.id
             )
-        # التعامل مع أي خطأ آخر
         except Exception as e:
-            print(e) # لطباعة الخطأ الكامل في سجلات التشغيل
+            print(e)
             bot.send_message(
                 message.chat.id,
                 f"❌ **حدث خطأ غير متوقع أثناء الانضمام.**\n\n`{e}`\n\nتأكد من أن الرابط صحيح وغير منتهي الصلاحية.",
                 reply_to_message_id=message.id
             )
-        return # إيقاف الدالة بعد محاولة الانضمام
+        return
 
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
@@ -241,19 +264,14 @@ if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
         try: toID = int(temp[1].strip())
         except: toID = fromID
         
-        # --- [تعديل] تصفير حالة الإلغاء قبل بدء أي عملية سحب جديدة ---
         cancel_tasks[user_id] = False
         
-        # ... (بقية كود التحقق من الرصيد وزيادة العداد يبقى كما هو)
-
         for msgid in range(fromID, toID+1):
-            # --- [تعديل] التحقق من طلب الإلغاء في بداية كل دورة ---
             if cancel_tasks.get(user_id, False):
                 bot.send_message(message.chat.id, "🛑 **تم إيقاف عملية السحب بنجاح بناءً على طلبك.**")
-                cancel_tasks[user_id] = False # إعادة تعيين الحالة للمرة القادمة
-                break # الخروج من حلقة السحب
-
-            # ... (بقية الكود الخاص بمعالجة كل رسالة يبقى كما هو)
+                cancel_tasks[user_id] = False
+                break
+            
             if "https://t.me/c/" in message.text:
                 chatid = int("-100" + datas[4])
                 if acc is None:
