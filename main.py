@@ -196,94 +196,64 @@ def send_start(client, message):
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "adduser", "deluser", "users", "cancel"]))
 def save(client, message):
     user_id = message.from_user.id
-    
-    # --- نظام التحقق الجديد مع الفترة التجريبية ---
-    if user_id != admin_id:
-        user_data = bot_users_collection.find_one({'user_id': user_id})
-        if not user_data:
-            bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
-            user_data = bot_users_collection.find_one({'user_id': user_id})
-
-        if user_data.get('is_subscribed', False):
-            pass # المستخدم مشترك، اسمح له بالمرور
-        else:
-            usage_count = user_data.get('usage_count', 0)
-            posts_to_download = 0
-            if "https://t.me/" in message.text and "https://t.me/+" not in message.text:
-                try:
-                    datas = message.text.split("/")
-                    temp = datas[-1].replace("?single","").split("-")
-                    fromID = int(temp[0].strip())
-                    toID = int(temp[1].strip()) if len(temp) > 1 else fromID
-                    posts_to_download = toID - fromID + 1
-                except (ValueError, IndexError):
-                    posts_to_download = 1
-            
-            if usage_count >= TRIAL_LIMIT:
-                bot.send_message(message.chat.id, f"لقد استهلكت رصيدك التجريبي ({TRIAL_LIMIT} منشور).\nللاستمرار في استخدام البوت، يرجى التواصل مع المالك للاشتراك.", reply_to_message_id=message.id)
-                return
-            if usage_count + posts_to_download > TRIAL_LIMIT:
-                remaining = TRIAL_LIMIT - usage_count
-                bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} منشور متبقي في الفترة التجريبية.", reply_to_message_id=message.id)
-                return
-
-    # --- معالجة روابط الانضمام ---
-    if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
-        if acc is None:
-            bot.send_message(message.chat.id, "الحساب المساعد غير مفعل، لا يمكن الانضمام.", reply_to_message_id=message.id)
-            return
-        try:
-            acc.join_chat(message.text)
-            bot.send_message(message.chat.id, "✅ تم انضمام الحساب المساعد بنجاح!", reply_to_message_id=message.id)
-        except InviteHashExpired:
-            bot.send_message(message.chat.id, "⚠️ **فشل الانضمام!**\nالسبب: رابط الدعوة منتهي الصلاحية أو تم إبطاله.", reply_to_message_id=message.id)
-        except UserAlreadyParticipant:
-             bot.send_message(message.chat.id, "ℹ️ الحساب المساعد عضو بالفعل في هذه القناة.", reply_to_message_id=message.id)
-        except Exception as e:
-            bot.send_message(message.chat.id, f"❌ **حدث خطأ غير متوقع.**\n`{e}`\nتأكد من أن الرابط صحيح.", reply_to_message_id=message.id)
+    # --- التحقق من اشتراك المستخدم ---
+    is_user_authorized = users_collection.find_one({"user_id": user_id})
+    if not is_user_authorized and user_id != admin_id:
+        bot.send_message(
+            message.chat.id,
+            "عذراً 🚫، أنت لست مشتركاً في هذا البوت.\nللاشتراك، يرجى التواصل مع المالك.",
+            reply_to_message_id=message.id
+        )
         return
 
-    # --- معالجة روابط الرسائل (للسحب) ---
+    # --- بقية الكود الأصلي ---
+    if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
+        if acc is None:
+            bot.send_message(message.chat.id,f"عـذرا خـطـأ غـير مفهوم ‼️‼️", reply_to_message_id=message.id)
+            return
+        try:
+            try: acc.join_chat(message.text)
+            except Exception as e:
+                bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
+                return
+            bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
+        except UserAlreadyParticipant:
+            bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
+        except InviteHashExpired:
+            bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
+
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
         temp = datas[-1].replace("?single","").split("-")
         fromID = int(temp[0].strip())
         try: toID = int(temp[1].strip())
         except: toID = fromID
-        
-        cancel_tasks[user_id] = False
-        
-        # [تصحيح] زيادة عداد الاستخدام للمستخدمين غير المشتركين
-        if user_id != admin_id:
-            user_data = bot_users_collection.find_one({'user_id': user_id})
-            if not user_data.get('is_subscribed', False):
-                posts_in_this_request = toID - fromID + 1
-                bot_users_collection.update_one({'user_id': user_id}, {'$inc': {'usage_count': posts_in_this_request}})
-        
         for msgid in range(fromID, toID+1):
-            if cancel_tasks.get(user_id, False):
-                bot.send_message(message.chat.id, "🛑 **تم إيقاف عملية السحب بنجاح بناءً على طلبك.**")
-                cancel_tasks[user_id] = False
-                break
-            
             if "https://t.me/c/" in message.text:
                 chatid = int("-100" + datas[4])
                 if acc is None:
                     bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
                     return
                 handle_private(message,chatid,msgid)
+            elif "https://t.me/b/" in message.text:
+                username = datas[4]
+                if acc is None:
+                    bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖𝐭", reply_to_message_id=message.id)
+                    return
+                try: handle_private(message,username,msgid)
+                except Exception as e: bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
             else:
                 username = datas[3]
                 try: msg = bot.get_messages(username,msgid)
                 except UsernameNotOccupied:
-                    bot.send_message(message.chat.id,f"عـذرا هـذا الـمـجمـوعـة / الـقـناة غـير مـوجـوده.", reply_to_message_id=message.id)
+                    bot.send_message(message.chat.id,f"عـذرا هـذا الـمـجمـوعـة / الـقـناة غـير مـوجـوده مـن فضـلك حـاول مـن جـديد ✅🚀", reply_to_message_id=message.id)
                     return
                 try:
                     if '?single' not in message.text:
                         bot.copy_message(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
                     else:
                         bot.copy_media_group(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
-                except Exception:
+                except:
                     if acc is None:
                         bot.send_message(message.chat.id,f"هـنـاك خـطـأ فـي مسـاعد البـوت ⚠️🤖", reply_to_message_id=message.id)
                         return
