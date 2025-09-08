@@ -20,7 +20,7 @@ api_id = getenv("API_LOL_ID")
 ss = getenv("STRING")
 mongo_uri = getenv("MONGO_DB_URI")
 admin_id = int(getenv("ADMIN_ID"))
-TRIAL_LIMIT = 30
+TRIAL_LIMIT = 100
 
 # --- [جديد] قاموس لتتبع عمليات الإلغاء لكل مستخدم ---
 cancel_tasks = {}
