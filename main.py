@@ -130,10 +130,15 @@ def send_start(client, message):
     )
     bot.send_photo(
         chat_id=message.chat.id,
-        photo="https://c.top4top.io/p_3535lbyx51.png",
+        photo="https://i.top4top.io/p_3538zm2ln1.png",
         caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
         reply_to_message_id=message.id,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")]])
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("الـبـوت الـرئـيـسـي 🤖↪️", url="https://t.me/btt5bot")],
+                [InlineKeyboardButton("مـن أنـا 😅✅", url="https://t.me/Q_A_66/65")]
+            ]
+        )
     )
 
 @bot.on_message(filters.command(["help"]))
