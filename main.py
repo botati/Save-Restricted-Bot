@@ -101,7 +101,7 @@ def downstatus(statusfile,message):
 	while os.path.exists(statusfile):
 		with open(statusfile,"r") as downread: txt = downread.read()
 		try:
-			bot.edit_message_text(message.chat.id, message.id, f"تـم تـنـزيــل بنـجـاح ✅ : **{txt}**")
+			bot.edit_message_text(message.chat.id, message.id, f"جــار تـنـزيــل أنتـظـر مـن فـضـلك 🚀🔥 : **{txt}**")
 			time.sleep(10)
 		except: time.sleep(5)
 
