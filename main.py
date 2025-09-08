@@ -289,13 +289,21 @@ def save(client, message):
 def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
-    except PeerIdInvalid:
-        bot.send_message(message.chat.id, "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة/nمن فضـلك ارسـل رابـط الانضمام لتتمكن سحب منشورات ✅🔥", reply_to_message_id=message.id)
+        
+    # [تعديل] تم إضافة ValueError هنا ليتعرف على الخطأ بشكل صحيح
+    except (PeerIdInvalid, ValueError):
+        bot.send_message(
+            message.chat.id,
+            "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة\nمن فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥",
+            reply_to_message_id=message.id
+        )
         return
+        
     except Exception as e:
         bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
         return
 
+    # --- بقية الكود في الدالة يبقى كما هو ---
     msg_type = get_message_type(msg)
     if "Text" == msg_type:
         bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
