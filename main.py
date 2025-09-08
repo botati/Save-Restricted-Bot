@@ -48,14 +48,14 @@ def cancel_download(client, message):
     user_id = message.from_user.id
     # يتم تعيين حالة الإلغاء إلى "صحيح" للمستخدم الحالي
     cancel_tasks[user_id] = True
-    message.reply_text("✅ **تم إرسال طلب الإلغاء...**\nسيتم إيقاف عملية السحب عند الرسالة التالية.")
+    message.reply_text("**سيـتـم ايـقـاف السـحـب الـمـتعـدد فـي حـال تـشـغـيـلة** ✅🔥")
 
 
 # --- أوامر المالك للتحكم في المشتركين ---
-@bot.on_message(filters.command("adduser") & admin_filter)
+@bot.on_message(filters.command("authvip") & admin_filter)
 def add_user(client, message):
     if len(message.command) < 2:
-        message.reply_text("الرجاء استخدام الأمر هكذا: `/adduser <user_id>`")
+        message.reply_text("الرجاء استخدام الأمر هكذا: `/authvip <user_id>`")
         return
     try:
         user_id_to_add = int(message.command[1])
@@ -63,13 +63,13 @@ def add_user(client, message):
             message.reply_text("هذا المستخدم مشترك بالفعل ✅")
         else:
             users_collection.insert_one({"user_id": user_id_to_add})
-            message.reply_text(f"تم إضافة المستخدم `{user_id_to_add}` بنجاح! 🎉")
+            message.reply_text(f"تـم تفعيل الـVIP للمستخدم  `{user_id_to_add}` بنـجـاح ✅🏆")
     except ValueError:
         message.reply_text("معرف المستخدم غير صالح.")
     except Exception as e:
         message.reply_text(f"حدث خطأ: {e}")
 
-@bot.on_message(filters.command("deluser") & admin_filter)
+@bot.on_message(filters.command("remvip") & admin_filter)
 def delete_user(client, message):
     if len(message.command) < 2:
         message.reply_text("الرجاء استخدام الأمر هكذا: `/deluser <user_id>`")
@@ -78,13 +78,13 @@ def delete_user(client, message):
         user_id_to_delete = int(message.command[1])
         result = users_collection.delete_one({"user_id": user_id_to_delete})
         if result.deleted_count > 0:
-            message.reply_text(f"تم حذف المستخدم `{user_id_to_delete}` بنجاح! 🗑️")
+            message.reply_text(f"تم حذف المستخدم `{user_id_to_delete}` بنجاح!")
         else:
             message.reply_text("المستخدم غير موجود في قائمة المشتركين.")
     except ValueError:
         message.reply_text("معرف المستخدم غير صالح.")
 
-@bot.on_message(filters.command("users") & admin_filter)
+@bot.on_message(filters.command("uservip") & admin_filter)
 def list_users(client, message):
     users = users_collection.find()
     user_list = [f"- `{user['user_id']}`" for user in users]
@@ -134,25 +134,25 @@ def send_start(client, message):
 @bot.on_message(filters.command(["help"]))
 def send_help(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
     help_text = """
-   🥇 **أهلاً بك في قائمة المساعدة!** 🥇
+🥇 **أهلاً بك في قائمة المساعدة!** 🥇
 
-    هـذا قـائـمـة الـجوكـر السـهـلـه و البـسـيـطة ↪️🏆
+هـذا قـائـمـة الـجوكـر السـهـلـه و البـسـيـطة ↪️🏆
 
-     🚀 **1. لـحفـظ مـنـشـور واحـد:**
-     فقط قم بإرسال رابط المنشور العام أو الخاص. 
-    - `https://t.me/username/123`
+ **1. لـحفـظ مـنـشـور واحـد:** ✅↪️
+فقط قم بإرسال رابط المنشور العام أو الخاص. 
+  - `https://t.me/username/123`
     - `https://t.me/c/1234567890/456`
 
-   **2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد ** فقط ارسـل🚀🔥
+ ** 2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد ** فقط ارسـل🚀🔥
    
-    - /get
+ - /get
 
-    **3. للانضمام إلى قناة خاصة:**
-    إذا كانت القناة خاصة، يجب أن ينضم الحساب المساعد أولاً. أرسل رابط الدعوة الخاص بالقناة للبوت.
-    - `https://t.me/+aBcDeFgHiJkLmNoP`
+ ** 3. للانضمام إلى قناة خاصة:**
+ إذا كانت القناة خاصة، يجب أن ينضم الحساب المساعد أولاً. أرسل رابط الدعوة الخاص بالقناة للبوت.
+ - `https://t.me/+aBcDeFgHiJkLmNoP`
 
-    **ملاحظة هامة:** ‼️
-    - يجب أن يكون الحساب المساعد عضواً في القناة الخاصة لتتمكن من سحب المحتوى منها.
+**ملاحظة هامة:** ‼️
+- يجب أن يكون الحساب المساعد عضواً في القناة الخاصة لتتمكن من سحب المحتوى منها.
     """
     bot.send_message(
         chat_id=message.chat.id,
@@ -184,7 +184,7 @@ def save(client, message):
     if not is_user_authorized and user_id != admin_id:
         bot.send_message(
             message.chat.id,
-            "عذراً 🚫، أنت لست مشتركاً في هذا البوت.\nللاشتراك، يرجى التواصل مع المالك.",
+            "عـذرا تـم انتهاء من التـجـربة الـمجـانـيه .\nمـن فـضـلك تـواصـل مـع الـمـطور @EG_28 ✅🔥",
             reply_to_message_id=message.id
         )
         return
@@ -261,7 +261,7 @@ def handle_private(message, chatid, msgid):
     except (PeerIdInvalid, ChannelPrivate, ValueError):
         bot.send_message(
             message.chat.id,
-            "❌ **فشل الوصول إلى الرسالة!**\n\n... (بقية رسالة الخطأ) ...",
+            "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن سحب منشورات ✅🔥",
             reply_to_message_id=message.id
         )
         return
@@ -275,7 +275,7 @@ def handle_private(message, chatid, msgid):
     if "Text" == msg_type:
         bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
         return
-    smsg = bot.send_message(message.chat.id, 'جـــار الــت-حـمـيـل ✅🚀', reply_to_message_id=message.id)
+    smsg = bot.send_message(message.chat.id, 'جـــار الــتحـمـيـل مـن فـضـلك انـتـظر ✅🚀', reply_to_message_id=message.id)
     dosta = threading.Thread(target=lambda:downstatus(f'{message.id}downstatus.txt',smsg),daemon=True)
     dosta.start()
     file = acc.download_media(msg, progress=progress, progress_args=[message,"down"])
