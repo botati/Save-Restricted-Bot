@@ -290,7 +290,7 @@ def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
     except PeerIdInvalid:
-        bot.send_message(message.chat.id, "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن سحب منشورات ✅🔥", reply_to_message_id=message.id)
+        bot.send_message(message.chat.id, "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة/nمن فضـلك ارسـل رابـط الانضمام لتتمكن سحب منشورات ✅🔥", reply_to_message_id=message.id)
         return
     except Exception as e:
         bot.send_message(message.chat.id, f"حدث خطأ غير متوقع: __{e}__", reply_to_message_id=message.id)
