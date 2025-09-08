@@ -222,11 +222,11 @@ def save(client, message):
             return
         try:
             acc.join_chat(message.text)
-            bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح ✅🚀", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,"تــم انـضـمام بنـجـاح. يـمكنك سحـب المنشورات الأن ✅🚀", reply_to_message_id=message.id)
         except UserAlreadyParticipant:
-            bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا 🔥🚀", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,"مـسـاعـد البـوت مـوجود فعـلا. يمـكنك سحـب المنشورات الأن 🔥🚀", reply_to_message_id=message.id)
         except InviteHashExpired:
-            bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام ⚠️‼️", reply_to_message_id=message.id)
+            bot.send_message(message.chat.id,"خـطـأ فـي رابــط الأنضـمام. ربما الرابط منتهي الصلاحية او تم حظر حساب المساعد من الانضمام ‼️🤖", reply_to_message_id=message.id)
         except Exception as e:
             bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
         return
