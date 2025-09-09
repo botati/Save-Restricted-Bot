@@ -9,6 +9,8 @@ import pyrogram.enums
 
 import time
 import os
+import cv2
+import random
 import threading
 import json
 
@@ -252,6 +254,7 @@ def send_help(client, message):
     """
     bot.send_message(message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
+
 @bot.on_message(filters.command(["get"]))
 def send_get_help(client, message):
     help_text = """
@@ -348,6 +351,34 @@ def save(client, message):
             except:
                 pass
 
+def extract_random_frame(video_path):
+    try:
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # تأكد من وجود إطارات في الفيديو
+        if total_frames > 10: # نتجنب الفيديوهات القصيرة جدًا
+            # اختر رقم لقطة عشوائي من منتصف الفيديو
+            start_frame = int(total_frames * 0.1) # ابدأ من 10%
+            end_frame = int(total_frames * 0.9)   # انتهِ عند 90%
+            random_frame_no = random.randint(start_frame, end_frame)
+            
+            cap.set(cv2.CAP_PROP_POS_FRAMES, random_frame_no)
+            success, frame = cap.read()
+            
+            if success:
+                thumb_path = f"{video_path}.jpg"
+                cv2.imwrite(thumb_path, frame)
+                cap.release()
+                return thumb_path
+                
+        cap.release()
+        return None
+    except Exception as e:
+        print(f"فشل في استخراج اللقطة: {e}")
+        return None
+
+
 def handle_private(message, chatid, msgid, target_chat_id, smsg):
     user_id = message.from_user.id
     custom_caption = user_captions.get(user_id)
@@ -378,8 +409,17 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
         if not file or not os.path.exists(file) or os.path.getsize(file) == 0:
             raise Exception("فشل تحميل الملف أو الملف فارغ.")
         
-        if msg.video and msg.video.thumbnail:
-             thumb = client_to_use.download_media(msg.video.thumbnail.file_id)
+        # [تعديل] منطق تحميل الصورة المصغرة
+        if msg.video:
+            try:
+                # محاولة تحميل الغلاف الأصلي أولاً
+                if hasattr(msg.video, "thumbnail") and msg.video.thumbnail:
+                    thumb = client_to_use.download_media(msg.video.thumbnail.file_id)
+            except Exception:
+                # إذا فشل، قم بالتقاط لقطة عشوائية من الفيديو
+                print("لم يتم العثور على غلاف أصلي، جاري التقاط لقطة عشوائية...")
+                thumb = extract_random_frame(file)
+        
         elif msg.document and hasattr(msg.document, "thumbnail") and msg.document.thumbnail:
              thumb = client_to_use.download_media(msg.document.thumbnail.file_id)
 
