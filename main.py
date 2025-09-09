@@ -207,7 +207,7 @@ def save(client, message):
         else:
             usage_count = user_data.get('usage_count', 0)
             posts_to_download = 1 # يتم حساب منشور واحد للاستوري أو الرابط العادي
-            if "https://t.me/" in message.text and "https://t.me/+" not in message.text and "/story/" not in message.text:
+            if "https://t.me/" in message.text and "https://t.me/+" not in message.text and "/story/" not in message.text and "/s/" not in message.text:
                 try:
                     datas = message.text.split("/")
                     temp = datas[-1].replace("?single","").split("-")
@@ -241,18 +241,26 @@ def save(client, message):
             bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
         return
 
-    # --- [جديد] معالجة روابط الاستوري ---
-    elif "/story/" in message.text:
+    # --- [تعديل] معالجة جميع أنواع روابط الاستوري ---
+    elif "/story/" in message.text or "/s/" in message.text:
         if acc is None:
             bot.send_message(message.chat.id, "لا يمكن سحب الاستوريات بدون حساب مساعد.", reply_to_message_id=message.id)
             return
         
         try:
-            parts = message.text.strip().split("/")
-            username = parts[-2]
-            story_id = int(parts[-1])
-            
             smsg = bot.send_message(message.chat.id, "جاري سحب الاستوري...", reply_to_message_id=message.id)
+            
+            parts = message.text.strip().split("/")
+            username = ""
+            story_id = 0
+
+            # تحديد اسم المستخدم ورقم الاستوري بناءً على نوع الرابط
+            if "/s/" in message.text:
+                username = parts[-3]
+                story_id = int(parts[-1])
+            else: # "/story/"
+                username = parts[-2]
+                story_id = int(parts[-1])
             
             # زيادة عداد الاستخدام
             if user_id != admin_id and not bot_users_collection.find_one({'user_id': user_id, 'is_subscribed': True}):
@@ -268,16 +276,16 @@ def save(client, message):
             if story_to_download:
                 file_path = acc.download_media(story_to_download)
                 if story_to_download.video:
-                    bot.send_video(message.chat.id, file_path, caption=story_to_download.caption)
+                    bot.send_video(message.chat.id, file_path, caption=story_to_download.caption, reply_to_message_id=message.id)
                 else:
-                    bot.send_photo(message.chat.id, file_path, caption=story_to_download.caption)
+                    bot.send_photo(message.chat.id, file_path, caption=story_to_download.caption, reply_to_message_id=message.id)
                 os.remove(file_path)
                 smsg.delete()
             else:
-                smsg.edit("لم يتم العثور على الاستوري. قد تكون قد حُذفت أو أن الرابط غير صحيح.")
+                smsg.edit("لم يتم العثور على الاستوري. قد تكون قد حُذفت، منتهية الصلاحية، أو أن الرابط غير صحيح.")
                 
         except Exception as e:
-            bot.send_message(message.chat.id, f"حدث خطأ أثناء سحب الاستوري: {e}", reply_to_message_id=message.id)
+            smsg.edit(f"حدث خطأ أثناء سحب الاستوري: {e}")
         return
 
     # --- معالجة روابط السحب العادية ---
