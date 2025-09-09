@@ -374,35 +374,46 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
     file = None
     thumb = None
     try:
-        file = client_to_use.download_media(msg, progress=progress, progress_args=[smsg, "down"])
+        file = client_to_use.download_media(msg)
         if not file or not os.path.exists(file) or os.path.getsize(file) == 0:
             raise Exception("فشل تحميل الملف أو الملف فارغ.")
         
-        # [تعديل] التحقق بشكل آمن من وجود الصورة المصغرة قبل محاولة تحميلها
-        if msg.video and hasattr(msg.video, "thumbnail") and msg.video.thumbnail:
+        if msg.video and msg.video.thumbnail:
              thumb = client_to_use.download_media(msg.video.thumbnail.file_id)
         elif msg.document and hasattr(msg.document, "thumbnail") and msg.document.thumbnail:
              thumb = client_to_use.download_media(msg.document.thumbnail.file_id)
 
+        # إرسال الملفات بناءً على نوعها الصحيح
         if "Document" == msg_type:
-            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
+            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
         elif "Video" == msg_type:
-            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
+            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
         elif "Photo" == msg_type:
             bot.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
-        else: # Fallback for other media types like Audio, Voice, Sticker
-            bot.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=message.id)
-    
+        elif "Animation" == msg_type:
+            bot.send_animation(target_chat_id, file, reply_to_message_id=message.id)
+        elif "Sticker" == msg_type:
+            bot.send_sticker(target_chat_id, file, reply_to_message_id=message.id)
+        elif "Audio" == msg_type:
+            bot.send_audio(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
+        elif "Voice" == msg_type:
+            bot.send_voice(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
+
     except Exception as e:
          bot.send_message(message.chat.id, f"فشل في معالجة المنشور {msgid}.\nالخطأ: `{e}`", reply_to_message_id=message.id)
     finally:
+        # حذف الملفات المؤقتة بعد الانتهاء
         if thumb and os.path.exists(thumb): os.remove(thumb)
         if file and os.path.exists(file): os.remove(file)
 
 def get_message_type(msg):
+    if msg.sticker: return "Sticker"
+    if msg.animation: return "Animation"
     if msg.video: return "Video"
     if msg.photo: return "Photo"
     if msg.document: return "Document"
+    if msg.audio: return "Audio"
+    if msg.voice: return "Voice"
     if msg.text: return "Text"
     if msg.media: return "Document" 
     return None
