@@ -374,22 +374,23 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
     file = None
     thumb = None
     try:
-        file = client_to_use.download_media(msg)
-        if not file or os.path.getsize(file) == 0:
+        file = client_to_use.download_media(msg, progress=progress, progress_args=[smsg, "down"])
+        if not file or not os.path.exists(file) or os.path.getsize(file) == 0:
             raise Exception("فشل تحميل الملف أو الملف فارغ.")
         
-        if msg.video and msg.video.thumbnail:
+        # [تعديل] التحقق بشكل آمن من وجود الصورة المصغرة قبل محاولة تحميلها
+        if msg.video and hasattr(msg.video, "thumbnail") and msg.video.thumbnail:
              thumb = client_to_use.download_media(msg.video.thumbnail.file_id)
-        elif msg.document and msg.document.thumbnail:
+        elif msg.document and hasattr(msg.document, "thumbnail") and msg.document.thumbnail:
              thumb = client_to_use.download_media(msg.document.thumbnail.file_id)
 
         if "Document" == msg_type:
-            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
+            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
         elif "Video" == msg_type:
-            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
+            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
         elif "Photo" == msg_type:
             bot.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
-        else:
+        else: # Fallback for other media types like Audio, Voice, Sticker
             bot.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=message.id)
     
     except Exception as e:
