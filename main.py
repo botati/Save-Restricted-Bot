@@ -1,4 +1,4 @@
-# WOODcraft https://github.com/SudoR2spr/Save-Restricted-Bot
+# main.py
 import pyrogram
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -12,7 +12,7 @@ import time
 import os
 import threading
 import json
-import asyncio # تم استيراد المكتبة للعمليات غير المتزامنة
+import asyncio
 
 # --- إعدادات الإتصال ---
 try:
@@ -38,7 +38,7 @@ cancel_tasks = {}
 client = MongoClient(mongo_uri)
 db = client['PaidBotDB']
 bot_users_collection = db['bot_users']
-subscriptions_collection = db['subscriptions'] # Collection جديد للاشتراكات
+subscriptions_collection = db['subscriptions']
 
 # --- إعدادات البوت والحساب المساعد ---
 bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
@@ -134,8 +134,8 @@ def progress(current, total, message, type):
 # --- قسم المراقبة التلقائية ---
 # ------------------------------------------------------------------
 if acc:
-    # [تعديل] تم تغيير filters.edited إلى filters.edit
-    @acc.on_message(filters.channel & ~filters.edit)
+    # [تعديل نهائي] الفلتر الصحيح في النسخ الحديثة هو filters.edited
+    @acc.on_message(filters.channel & ~filters.edited)
     async def channel_monitor(client, message):
         subscribers = subscriptions_collection.find({"channel_id": message.chat.id})
         for sub in subscribers:
