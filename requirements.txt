@@ -3,3 +3,4 @@ TgCrypto==1.2.5
 Flask
 motor
 pymongo
+opencv-python-headless
