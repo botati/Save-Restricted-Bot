@@ -6,6 +6,8 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 import pyrogram.enums
+import cv2
+import random
 
 import time
 import os
@@ -87,7 +89,6 @@ def bot_stats(client, message):
     total_users = bot_users_collection.count_documents({})
     vip_users = bot_users_collection.count_documents({'is_subscribed': True})
     trial_users = total_users - vip_users
-    
     stats_text = f"📊 **إحصائيات البوت:**\n\n- **إجمالي المستخدمين:** {total_users}\n- **المشتركون (VIP):** {vip_users}\n- **مستخدمو الفترة التجريبية:** {trial_users}"
     message.reply_text(stats_text)
 
@@ -145,7 +146,6 @@ def add_user(client, message: Message):
         days = None
         if len(message.command) > 2:
             days = int(message.command[2])
-        
         update_data = {'$set': {'is_subscribed': True}, '$unset': {'usage_count': ''}}
         if days:
             expiry_date = datetime.now() + timedelta(days=days)
@@ -240,26 +240,12 @@ def send_start(client, message):
 
 @bot.on_message(filters.command(["help"]))
 def send_help(client, message):
-    help_text = """
-🥇 **أهلاً بك في قائمة المساعدة!** 🥇
-- لحفظ منشور، أرسل رابطه.
-- لحفظ مجموعة، أرسل رابطها مع تحديد الأرقام (مثال: `.../123-140`).
-- للانضمام لقناة خاصة، أرسل رابط الدعوة (`t.me/+...`).
-- لحفظ ستوري، أرسل رابطه.
-- للتحكم في الاشتراك المؤقت: `/authvip <id> <days>`.
-- للحفظ في قناة: `/set_channel <id>` | `/reset_channel`.
-- لإضافة كابشن: `/setcaption <text>` | `/delcaption`.
-    """
+    help_text = "..." # يمكنك وضع رسالة المساعدة هنا
     bot.send_message(message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 @bot.on_message(filters.command(["get"]))
 def send_get_help(client, message):
-    help_text = """
-  **لـتشـغـيـل السـحب الـمتـعدد تـابع الخـطواط** 🫴🏻✅
-    أرسل الرابط بهذا الشكل (رقم البداية - رقم النهاية).
-    - `https://t.me/username/123-130`
-**و سيقوم ببـدأ سـحب المنشورات** 🚀🔥
-    """
+    help_text = "..." # يمكنك وضع رسالة المساعدة هنا
     bot.send_message(chat_id=message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "authvip", "remvip", "uservip", "cancel", "myid", "stats", "setcaption", "delcaption", "set_channel", "reset_channel"]))
@@ -389,14 +375,8 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
             bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
         elif "Photo" == msg_type:
             bot.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
-        elif "Animation" == msg_type:
-            bot.send_animation(target_chat_id, file, reply_to_message_id=message.id)
-        elif "Sticker" == msg_type:
-            bot.send_sticker(target_chat_id, file, reply_to_message_id=message.id)
-        elif "Audio" == msg_type:
-            bot.send_audio(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
-        elif "Voice" == msg_type:
-            bot.send_voice(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
+        else:
+            bot.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=message.id)
     
     except Exception as e:
          bot.send_message(message.chat.id, f"فشل في معالجة المنشور {msgid}.\nالخطأ: `{e}`", reply_to_message_id=message.id)
@@ -405,13 +385,9 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
         if file and os.path.exists(file): os.remove(file)
 
 def get_message_type(msg):
-    if msg.sticker: return "Sticker"
-    if msg.animation: return "Animation"
     if msg.video: return "Video"
     if msg.photo: return "Photo"
     if msg.document: return "Document"
-    if msg.audio: return "Audio"
-    if msg.voice: return "Voice"
     if msg.text: return "Text"
     if msg.media: return "Document" 
     return None
