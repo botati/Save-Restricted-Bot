@@ -134,7 +134,8 @@ def progress(current, total, message, type):
 # --- قسم المراقبة التلقائية ---
 # ------------------------------------------------------------------
 if acc:
-    @acc.on_message(filters.channel & ~filters.edited)
+    # [الحل البديل] تم إزالة فلتر التعديل لتجنب الأخطاء في النسخ القديمة
+    @acc.on_message(filters.channel)
     async def channel_monitor(client, message):
         subscribers = subscriptions_collection.find({"channel_id": message.chat.id})
         for sub in subscribers:
