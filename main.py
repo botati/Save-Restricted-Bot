@@ -134,7 +134,8 @@ def progress(current, total, message, type):
 # --- قسم المراقبة التلقائية ---
 # ------------------------------------------------------------------
 if acc:
-    @acc.on_message(filters.channel & ~filters.edited)
+    # [تعديل] تم تغيير filters.edited إلى filters.edit
+    @acc.on_message(filters.channel & ~filters.edit)
     async def channel_monitor(client, message):
         subscribers = subscriptions_collection.find({"channel_id": message.chat.id})
         for sub in subscribers:
@@ -244,7 +245,7 @@ def send_help(client, message):
     bot.send_message(chat_id=message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 # ------------------------------------------------------------------
-# --- الدالة الرئيسية لمعالجة الرسائل (تم إصلاحها) ---
+# --- الدالة الرئيسية لمعالجة الرسائل ---
 # ------------------------------------------------------------------
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "authvip", "remvip", "uservip", "cancel", "subscribe", "unsubscribe", "subscriptions"]))
 def save(client, message):
