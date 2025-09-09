@@ -134,7 +134,6 @@ def progress(current, total, message, type):
 # --- قسم المراقبة التلقائية ---
 # ------------------------------------------------------------------
 if acc:
-    # [تعديل نهائي] الفلتر الصحيح في النسخ الحديثة هو filters.edited
     @acc.on_message(filters.channel & ~filters.edited)
     async def channel_monitor(client, message):
         subscribers = subscriptions_collection.find({"channel_id": message.chat.id})
@@ -330,6 +329,7 @@ def save(client, message):
             except Exception as e:
                 try:
                     if acc:
+                        username = datas[3]
                         handle_private(message, username, msgid)
                     else:
                          message.reply_text(f"حدث خطأ: {e}")
