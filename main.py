@@ -1,9 +1,11 @@
 # WOODcraft https://github.com/SudoR2spr/Save-Restricted-Bot
 import pyrogram
 from pyrogram import Client, filters
-from pymongo import MongoClient
 from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, PeerIdInvalid, ChannelPrivate
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pymongo import MongoClient
+from datetime import datetime, timedelta
+import pyrogram.enums
 
 import time
 import os
@@ -25,7 +27,7 @@ TRIAL_LIMIT = 100
 # --- متغيرات لتتبع الحالات ---
 cancel_tasks = {}
 active_downloads = set()
-user_captions = {} # لتخزين الكابشن المخصص
+user_captions = {}
 
 # --- ربط قاعدة البيانات ---
 client = MongoClient(mongo_uri)
@@ -51,7 +53,7 @@ def cancel_download(client, message):
     user_id = message.from_user.id
     if user_id in active_downloads:
         cancel_tasks[user_id] = True
-        message.reply_text("✅ **تم إرسال طلب الإلغاء...**\nسيتم إيقاف عملية السحب عند الرسالة التالية.")
+        message.reply_text("✅ **تم إرسال طلب الإلغاء...**")
     else:
         message.reply_text("ℹ️ **لا توجد عملية سحب نشطة لإلغائها.**")
 
@@ -64,8 +66,16 @@ def my_status(client, message):
         bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
         user_data = bot_users_collection.find_one({'user_id': user_id})
 
-    if user_data.get('is_subscribed', False):
-        status_text = f"👤 **حالة حسابك:**\n\n- **نوع الاشتراك:** VIP ⭐\n- **الرصيد المتبقي:** لا محدود ∞"
+    is_subscribed = user_data.get('is_subscribed', False)
+    expiry_date = user_data.get('expiry_date')
+    
+    if is_subscribed and expiry_date and datetime.now() > expiry_date:
+        is_subscribed = False
+        bot_users_collection.update_one({'user_id': user_id}, {'$set': {'is_subscribed': False, 'usage_count': 0}})
+
+    if is_subscribed:
+        expiry_text = f"ينتهي في: {expiry_date.strftime('%Y-%m-%d')}" if expiry_date else "اشتراك دائم"
+        status_text = f"👤 **حالة حسابك:**\n\n- **نوع الاشتراك:** VIP ⭐\n- **صلاحية الاشتراك:** {expiry_text}"
     else:
         usage_count = user_data.get('usage_count', 0)
         remaining = TRIAL_LIMIT - usage_count
@@ -100,33 +110,62 @@ def delete_caption(client, message: Message):
     else:
         message.reply_text("ℹ️ لم تقم بتعيين أي كابشن مخصص.")
 
+@bot.on_message(filters.command("set_channel"))
+def set_save_channel(client, message: Message):
+    user_id = message.from_user.id
+    if len(message.command) < 2:
+        message.reply_text("الرجاء استخدام الأمر هكذا:\n`/set_channel <channel_id_or_username>`\n\nمثال:\n`/set_channel -10012345678`\nأو\n`/set_channel @MyArchiveChannel`")
+        return
+    
+    channel_id_str = message.command[1]
+    try:
+        target_chat_id = int(channel_id_str) if channel_id_str.startswith("-") else channel_id_str
+        chat = bot.get_chat(target_chat_id)
+        bot_member = bot.get_chat_member(chat.id, "me")
+        if bot_member.status not in [pyrogram.enums.ChatMemberStatus.ADMINISTRATOR, pyrogram.enums.ChatMemberStatus.OWNER]:
+             raise Exception("البوت ليس مسؤولاً في هذه القناة.")
+        bot_users_collection.update_one({'user_id': user_id}, {'$set': {'target_channel': chat.id}})
+        message.reply_text(f"✅ تم تعيين قناة الحفظ بنجاح إلى: **{chat.title}**")
+    except Exception as e:
+        message.reply_text(f"❌ **فشل تعيين القناة!**\nالسبب: `{e}`\n\nتأكد من أن المعرف صحيح وأن البوت لديه صلاحيات المسؤول في القناة.")
+
+@bot.on_message(filters.command("reset_channel"))
+def reset_save_channel(client, message: Message):
+    user_id = message.from_user.id
+    bot_users_collection.update_one({'user_id': user_id}, {'$unset': {'target_channel': ''}})
+    message.reply_text("✅ تم إعادة تعيين وجهة الحفظ. سيتم الآن إرسال الملفات إليك هنا.")
+
 @bot.on_message(filters.command("authvip") & admin_filter)
 def add_user(client, message: Message):
-    user_id_to_add = None
-    if message.reply_to_message:
-        user_id_to_add = message.reply_to_message.from_user.id
-    elif len(message.command) > 1:
-        try:
-            user_id_to_add = int(message.command[1])
-        except ValueError:
-            message.reply_text("معرف المستخدم غير صالح.")
-            return
-    else:
-        message.reply_text("الرجاء الرد على رسالة مستخدم أو كتابة المعرف بعد الأمر.")
+    if len(message.command) < 2:
+        message.reply_text("الرجاء استخدام الأمر هكذا:\n`/authvip <user_id> <days>`\n\n- للاشتراك الدائم: `/authvip 12345`\n- لاشتراك 30 يوم: `/authvip 12345 30`")
         return
-
-    bot_users_collection.update_one(
-        {'user_id': user_id_to_add},
-        {'$set': {'is_subscribed': True}, '$unset': {'usage_count': ''}},
-        upsert=True
-    )
-    message.reply_text(f"تـم تفعيل الـVIP للمستخدم `{user_id_to_add}` بنـجـاح ✅🏆")
-    
     try:
-        welcome_message = "🎉 **تهانينا!** 🎉\n\nلقد تم تفعيل اشتراكك الـ VIP في البوت بنجاح.\nيمكنك الآن الاستمتاع بجميع الميزات بلا حدود. شكرًا لثقتك!"
-        bot.send_message(chat_id=user_id_to_add, text=welcome_message)
-    except Exception as e:
-        message.reply_text(f"⚠️ **تنبيه:** لم أتمكن من إرسال رسالة الترحيب للمستخدم.\nالخطأ: `{e}`")
+        user_id_to_add = int(message.command[1])
+        days = None
+        if len(message.command) > 2:
+            days = int(message.command[2])
+        
+        update_data = {'$set': {'is_subscribed': True}, '$unset': {'usage_count': ''}}
+        if days:
+            expiry_date = datetime.now() + timedelta(days=days)
+            update_data['$set']['expiry_date'] = expiry_date
+            expiry_text = f"لمدة **{days}** يومًا."
+        else:
+            update_data['$unset']['expiry_date'] = ""
+            expiry_text = "**للأبد**."
+
+        bot_users_collection.update_one({'user_id': user_id_to_add}, update_data, upsert=True)
+        message.reply_text(f"تـم تفعيل الـVIP للمستخدم `{user_id_to_add}` بنـجـاح ✅🏆\nمدة الاشتراك: {expiry_text}")
+        
+        try:
+            welcome_message = "🎉 **تهانينا!** 🎉\n\nلقد تم تفعيل اشتراكك الـ VIP في البوت بنجاح.\nيمكنك الآن الاستمتاع بجميع الميزات بلا حدود. شكرًا لثقتك!"
+            bot.send_message(chat_id=user_id_to_add, text=welcome_message)
+        except Exception as e:
+            message.reply_text(f"⚠️ **تنبيه:** لم أتمكن من إرسال رسالة الترحيب للمستخدم.\nالخطأ: `{e}`")
+
+    except (ValueError, IndexError):
+        message.reply_text("صيغة الأمر غير صحيحة. يرجى المراجعة.")
 
 @bot.on_message(filters.command("remvip") & admin_filter)
 def delete_user(client, message):
@@ -146,7 +185,7 @@ def delete_user(client, message):
 @bot.on_message(filters.command("uservip") & admin_filter)
 def list_users(client, message):
     users = bot_users_collection.find({'is_subscribed': True})
-    user_list = [f"- `{user['user_id']}`" for user in users]
+    user_list = [f"- `{user.get('user_id')}` (ينتهي في: {user.get('expiry_date', 'دائم').strftime('%Y-%m-%d') if isinstance(user.get('expiry_date'), datetime) else 'دائم'})" for user in users]
     if user_list:
         message.reply_text("قائمة المشتركين:\n" + "\n".join(user_list))
     else:
@@ -159,8 +198,7 @@ def downstatus(statusfile,message):
 	while os.path.exists(statusfile):
 		with open(statusfile,"r") as downread: txt = downread.read()
 		try:
-			bot.edit_message_text(message.chat.id, message.id, f"جــار تـنـزيــل أنتـظـر مـن فـضـلك 🚀🔥 : **{txt}**")
-			time.sleep(10)
+			bot.edit_message_text(message.chat.id, message.id, f"جــار تـنـزيــل... **{txt}**")
 		except: time.sleep(5)
 
 def upstatus(statusfile,message):
@@ -170,8 +208,7 @@ def upstatus(statusfile,message):
 	while os.path.exists(statusfile):
 		with open(statusfile,"r") as upread: txt = upread.read()
 		try:
-			bot.edit_message_text(message.chat.id, message.id, f"تـم التـحمـيـل بنـجـاح ✅↪️ : **{txt}**")
-			time.sleep(10)
+			bot.edit_message_text(message.chat.id, message.id, f"جــار الرفــع... **{txt}**")
 		except: time.sleep(5)
 
 def progress(current, total, message, type):
@@ -181,67 +218,44 @@ def progress(current, total, message, type):
 @bot.on_message(filters.command(["start"]))
 def send_start(client, message):
     user_id = message.from_user.id
-    bot_users_collection.update_one(
-        {'user_id': user_id},
-        {'$setOnInsert': {'is_subscribed': False, 'usage_count': 0}},
-        upsert=True
-    )
+    bot_users_collection.update_one({'user_id': user_id},{'$setOnInsert': {'is_subscribed': False, 'usage_count': 0}},upsert=True)
     bot.send_photo(
         chat_id=message.chat.id,
         photo="https://i.top4top.io/p_3538zm2ln1.png",
-        caption="اهــلا عــزيـزي الـمـسـتـخدم انـا مسـاعد بــوت الـجوكـر مـن فـضـلك ارسـل رأبط الـمـنـشـور 📇.",
+        caption="اهــلا بك في بوت حفظ المحتوى المقيد.",
         reply_to_message_id=message.id,
         reply_markup=InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("الـبـوت الـرئـيـسـي 🔥↪️", url="https://t.me/btt5bot")],
-                [InlineKeyboardButton("مـن أكــون 😅✅", url="https://t.me/Q_A_66/65")]
-            ]
+            [[InlineKeyboardButton("الـبـوت الـرئـيـسـي 🔥↪️", url="https://t.me/btt5bot")],
+             [InlineKeyboardButton("مـن أكــون 😅✅", url="https://t.me/Q_A_66/65")]]
         )
     )
 
 @bot.on_message(filters.command(["help"]))
 def send_help(client, message):
-    help_text = """
-🥇 أهلاً بك في قائمة المساعدة! 🥇
-هـذا قـائـمـة الـجوكـر السـهـلـه و البـسـيـطة ↪️🏆
-1. لـحفـظ مـنـشـور واحـد: ✅↪️
-فقط قم بإرسال رابط المنشور العام أو الخاص. 
-  - `https://t.me/username/123`
-  - `https://t.me/c/1234567890/456`
-
-2. لحفظ مجموعة من المنشورات ( الـسـحـب الـمـتعدد ) فقط ارسـل🚀🔥
- - /get
-
-3. للانضمام إلى قناة خاصة:
- إذا كانت القناة خاصة، يجب أن ينضم الحساب المساعد أولاً. أرسل رابط الدعوة الخاص بالقناة للبوت.
- - `https://t.me/+aBcDeFgHiJkLmNoP`
-
-**ملاحظة هامة:** ‼️
-- يجب أن يكون الحساب المساعد عضواً في القناة الخاصة لتتمكن من سحب المحتوى منها.
-- شـكرا عـلي اختـيارك بـوت الـجـوكر 🥰👑
-    """
+    help_text = "..." # يمكنك وضع رسالة المساعدة هنا
     bot.send_message(message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 @bot.on_message(filters.command(["get"]))
 def send_get_help(client, message):
-    help_text = """
-  **لـتشـغـيـل السـحب الـمتـعدد تـابع الخـطواط** 🫴🏻✅
-    أرسل الرابط بهذا الشكل (رقم البداية - رقم النهاية).
-    - `https://t.me/username/123-130`
-**و سيقوم ببـدأ سـحب المنشورات** 🚀🔥
-    """
+    help_text = "..." # يمكنك وضع رسالة المساعدة هنا
     bot.send_message(chat_id=message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
-@bot.on_message(filters.text & ~filters.command(["start", "help", "get", "authvip", "remvip", "uservip", "cancel", "myid", "stats", "setcaption", "delcaption"]))
+@bot.on_message(filters.text & ~filters.command(["start", "help", "get", "authvip", "remvip", "uservip", "cancel", "myid", "stats", "setcaption", "delcaption", "set_channel", "reset_channel"]))
 def save(client, message):
     user_id = message.from_user.id
-    if user_id != admin_id:
+    user_data = bot_users_collection.find_one({'user_id': user_id})
+    if not user_data:
+        bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
         user_data = bot_users_collection.find_one({'user_id': user_id})
-        if not user_data:
-            bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
-            user_data = bot_users_collection.find_one({'user_id': user_id})
 
-        if not user_data.get('is_subscribed', False):
+    if user_id != admin_id:
+        is_subscribed = user_data.get('is_subscribed', False)
+        expiry_date = user_data.get('expiry_date')
+        if is_subscribed and expiry_date and datetime.now() > expiry_date:
+            is_subscribed = False
+            bot_users_collection.update_one({'user_id': user_id}, {'$set': {'is_subscribed': False, 'usage_count': 0}})
+            bot.send_message(user_id, "⚠️ **انتهى اشتراكك الـ VIP!**\nلقد تم إعادتك إلى الفترة التجريبية.")
+        if not is_subscribed:
             usage_count = user_data.get('usage_count', 0)
             posts_to_download = 1
             if "https://t.me/" in message.text and "https://t.me/+" not in message.text:
@@ -251,16 +265,16 @@ def save(client, message):
                     fromID = int(temp[0].strip())
                     toID = int(temp[1].strip()) if len(temp) > 1 else fromID
                     posts_to_download = toID - fromID + 1
-                except (ValueError, IndexError):
-                    posts_to_download = 1
-            
+                except (ValueError, IndexError): posts_to_download = 1
             if usage_count >= TRIAL_LIMIT:
-                bot.send_message(message.chat.id, "عـذرا تـم انتهاء من التـجـربة الـمجـانـيه .\nمـن فـضـلك تـواصـل مـع الـمـطور @EG_28 ✅🔥", reply_to_message_id=message.id)
+                bot.send_message(message.chat.id, "انتهت تجربتك المجانية. تواصل مع المطور للاشتراك.", reply_to_message_id=message.id)
                 return
             if usage_count + posts_to_download > TRIAL_LIMIT:
                 remaining = TRIAL_LIMIT - usage_count
-                bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} محاولة متبقية.", reply_to_message_id=message.id)
+                bot.send_message(message.chat.id, f"طلبك يتجاوز الرصيد المتبقي ({remaining} محاولة).", reply_to_message_id=message.id)
                 return
+
+    target_chat_id = user_data.get('target_channel', message.chat.id)
 
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
         if acc is None:
@@ -280,46 +294,40 @@ def save(client, message):
     elif "https://t.me/" in message.text:
         active_downloads.add(user_id)
         try:
-            datas = message.text.split("/")
-            temp = datas[-1].replace("?single","").split("-")
-            fromID = int(temp[0].strip())
-            toID = int(temp[1].strip()) if len(temp) > 1 else fromID
-            
+            datas = message.text.split("/"); temp = datas[-1].replace("?single","").split("-")
+            fromID = int(temp[0].strip()); toID = int(temp[1].strip()) if len(temp) > 1 else fromID
             cancel_tasks[user_id] = False
-            
             if user_id != admin_id:
                 user_data_check = bot_users_collection.find_one({'user_id': user_id})
                 if not user_data_check.get('is_subscribed', False):
                     posts_in_this_request = toID - fromID + 1
                     bot_users_collection.update_one({'user_id': user_id}, {'$inc': {'usage_count': posts_in_this_request}})
-            
             for msgid in range(fromID, toID+1):
                 if cancel_tasks.get(user_id, False):
-                    bot.send_message(message.chat.id, "🛑 **تم إيقاف عملية السحب بنجاح بناءً على طلبك.**")
-                    break
-                
+                    bot.send_message(target_chat_id, "🛑 **تم إيقاف السحب.**"); break
                 if "https://t.me/c/" in message.text:
                     chatid = int("-100" + datas[4])
-                    handle_private(message, chatid, msgid)
+                    handle_private(message, chatid, msgid, target_chat_id)
                 else:
                     username = datas[3]
-                    handle_private(message, username, msgid)
+                    handle_private(message, username, msgid, target_chat_id)
                 time.sleep(3)
         finally:
             if user_id in active_downloads: active_downloads.remove(user_id)
             if user_id in cancel_tasks: cancel_tasks[user_id] = False
 
-def handle_private(message, chatid, msgid):
+def handle_private(message, chatid, msgid, target_chat_id):
     user_id = message.from_user.id
     custom_caption = user_captions.get(user_id)
     
     try:
-        # For public channels (username) use the bot or helper, for private (ID) use the helper
-        client_to_use = acc if isinstance(chatid, int) or acc else bot
-        if isinstance(chatid, int) and acc is None:
-             bot.send_message(message.chat.id, "لا يمكن سحب هذا المحتوى بدون حساب مساعد.", reply_to_message_id=message.id)
-             return
-        msg = client_to_use.get_messages(chatid, msgid)
+        if isinstance(chatid, str):
+             msg = bot.get_messages(chatid, msgid)
+        else:
+             if acc is None:
+                 bot.send_message(target_chat_id, "لا يمكن سحب هذا المحتوى بدون حساب مساعد.", reply_to_message_id=message.id)
+                 return
+             msg = acc.get_messages(chatid, msgid)
     except (PeerIdInvalid, ValueError):
         bot.send_message(message.chat.id, "عـذرا، الحساب المساعد ليس عضوًا في هذه القناة. أرسل رابط الدعوة أولاً.", reply_to_message_id=message.id)
         return
@@ -336,31 +344,36 @@ def handle_private(message, chatid, msgid):
     msg_type = get_message_type(msg)
     if not msg_type or msg_type == "Text":
         if msg.text:
-            bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
+            bot.send_message(target_chat_id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
         else:
             bot.send_message(message.chat.id, "عذراً، هذا النوع من الرسائل غير مدعوم للحفظ.", reply_to_message_id=message.id)
         return
         
     smsg = bot.send_message(message.chat.id, 'جـــار الــتحـمـيـل...', reply_to_message_id=message.id)
     
-    file = client_to_use.download_media(msg, progress=progress, progress_args=[message,"down"])
+    downloader = acc if acc else bot
+    file = downloader.download_media(msg, progress=progress, progress_args=[message,"down"])
     
+    if not file or not os.path.exists(file):
+        smsg.edit_text("فشل تحميل الملف.")
+        return
+
     thumb = None
     try:
         if msg.video and msg.video.thumbnail:
-             thumb = client_to_use.download_media(msg.video.thumbnail.file_id)
+             thumb = downloader.download_media(msg.video.thumbnail.file_id)
         elif msg.document and msg.document.thumbnail:
-             thumb = client_to_use.download_media(msg.document.thumbnail.file_id)
+             thumb = downloader.download_media(msg.document.thumbnail.file_id)
     except Exception: pass
 
     if "Document" == msg_type:
-        bot.send_document(message.chat.id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+        bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
     elif "Video" == msg_type:
-        bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
+        bot.send_video(target_chat_id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[message,"up"])
     elif "Photo" == msg_type:
-        bot.send_photo(message.chat.id, file, caption=final_caption, reply_to_message_id=message.id)
+        bot.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
     else:
-        bot.copy_message(message.chat.id, msg.chat.id, msg.id, caption=final_caption, reply_to_message_id=message.id)
+        bot.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=message.id)
 
     if thumb and os.path.exists(thumb): os.remove(thumb)
     if file and os.path.exists(file): os.remove(file)
