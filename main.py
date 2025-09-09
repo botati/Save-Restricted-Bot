@@ -87,6 +87,7 @@ def bot_stats(client, message):
     total_users = bot_users_collection.count_documents({})
     vip_users = bot_users_collection.count_documents({'is_subscribed': True})
     trial_users = total_users - vip_users
+    
     stats_text = f"📊 **إحصائيات البوت:**\n\n- **إجمالي المستخدمين:** {total_users}\n- **المشتركون (VIP):** {vip_users}\n- **مستخدمو الفترة التجريبية:** {trial_users}"
     message.reply_text(stats_text)
 
@@ -144,6 +145,7 @@ def add_user(client, message: Message):
         days = None
         if len(message.command) > 2:
             days = int(message.command[2])
+        
         update_data = {'$set': {'is_subscribed': True}, '$unset': {'usage_count': ''}}
         if days:
             expiry_date = datetime.now() + timedelta(days=days)
@@ -152,20 +154,42 @@ def add_user(client, message: Message):
         else:
             update_data['$unset']['expiry_date'] = ""
             expiry_text = "**للأبد**."
+        
         bot_users_collection.update_one({'user_id': user_id_to_add}, update_data, upsert=True)
         message.reply_text(f"تـم تفعيل الـVIP للمستخدم `{user_id_to_add}` بنـجـاح ✅🏆\nمدة الاشتراك: {expiry_text}")
+        
+        try:
+            welcome_message = "🎉 **تهانينا!** 🎉\n\nلقد تم تفعيل اشتراكك الـ VIP.\nيمكنك الآن الاستمتاع بجميع الميزات بلا حدود. شكرًا لثقتك!"
+            bot.send_message(chat_id=user_id_to_add, text=welcome_message)
+        except Exception as e:
+            message.reply_text(f"⚠️ **تنبيه:** لم أتمكن من إرسال رسالة الترحيب للمستخدم.\nالخطأ: `{e}`")
+
     except (ValueError, IndexError):
         message.reply_text("صيغة الأمر غير صحيحة.")
 
 @bot.on_message(filters.command("remvip") & admin_filter)
 def delete_user(client, message):
-    # ... الكود هنا كامل وصحيح
-    pass
+    if len(message.command) < 2:
+        message.reply_text("الرجاء استخدام الأمر هكذا: `/remvip <user_id>`")
+        return
+    try:
+        user_id_to_delete = int(message.command[1])
+        result = bot_users_collection.delete_one({"user_id": user_id_to_delete})
+        if result.deleted_count > 0:
+            message.reply_text(f"تم حذف اشتراك المستخدم `{user_id_to_delete}` بنجاح!")
+        else:
+            message.reply_text("المستخدم غير موجود.")
+    except ValueError:
+        message.reply_text("معرف المستخدم غير صالح.")
 
 @bot.on_message(filters.command("uservip") & admin_filter)
 def list_users(client, message):
-    # ... الكود هنا كامل وصحيح
-    pass
+    users = bot_users_collection.find({'is_subscribed': True})
+    user_list = [f"- `{user.get('user_id')}` (ينتهي في: {user.get('expiry_date', 'دائم').strftime('%Y-%m-%d') if isinstance(user.get('expiry_date'), datetime) else 'دائم'})" for user in users]
+    if user_list:
+        message.reply_text("قائمة المشتركين:\n" + "\n".join(user_list))
+    else:
+        message.reply_text("لا يوجد مشتركين حالياً.")
 
 def downstatus(statusfile,message, target_chat_id):
 	while True:
@@ -173,8 +197,10 @@ def downstatus(statusfile,message, target_chat_id):
 	time.sleep(3)
 	while os.path.exists(statusfile):
 		with open(statusfile,"r") as downread: txt = downread.read()
-		try: bot.edit_message_text(target_chat_id, message.id, f"جــار تـنـزيــل... **{txt}**")
-		except: time.sleep(5)
+		try:
+			bot.edit_message_text(target_chat_id, message.id, f"جــار تـنـزيــل... **{txt}**")
+		except:
+			time.sleep(5)
 
 def upstatus(statusfile,message, target_chat_id):
 	while True:
@@ -182,8 +208,10 @@ def upstatus(statusfile,message, target_chat_id):
 	time.sleep(3)
 	while os.path.exists(statusfile):
 		with open(statusfile,"r") as upread: txt = upread.read()
-		try: bot.edit_message_text(target_chat_id, message.id, f"جــار الرفــع... **{txt}**")
-		except: time.sleep(5)
+		try:
+			bot.edit_message_text(target_chat_id, message.id, f"جــار الرفــع... **{txt}**")
+		except:
+			time.sleep(5)
 
 def progress(current, total, message, type):
 	with open(f'{message.id}{type}status.txt',"w") as fileup:
@@ -191,18 +219,48 @@ def progress(current, total, message, type):
 
 @bot.on_message(filters.command(["start"]))
 def send_start(client, message):
-    # ... الكود هنا كامل وصحيح
-    pass
+    user_id = message.from_user.id
+    bot_users_collection.update_one(
+        {'user_id': user_id},
+        {'$setOnInsert': {'is_subscribed': False, 'usage_count': 0}},
+        upsert=True
+    )
+    bot.send_photo(
+        chat_id=message.chat.id,
+        photo="https://i.top4top.io/p_3538zm2ln1.png",
+        caption="اهــلا بك في بوت حفظ المحتوى المقيد.",
+        reply_to_message_id=message.id,
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("الـبـوت الـرئـيـسـي 🔥↪️", url="https://t.me/btt5bot")],
+                [InlineKeyboardButton("مـن أكــون 😅✅", url="https://t.me/Q_A_66/65")]
+            ]
+        )
+    )
 
 @bot.on_message(filters.command(["help"]))
 def send_help(client, message):
-    # ... الكود هنا كامل وصحيح
-    pass
+    help_text = """
+🥇 **أهلاً بك في قائمة المساعدة!** 🥇
+- لحفظ منشور، أرسل رابطه.
+- لحفظ مجموعة، أرسل رابطها مع تحديد الأرقام (مثال: `.../123-140`).
+- للانضمام لقناة خاصة، أرسل رابط الدعوة (`t.me/+...`).
+- لحفظ ستوري، أرسل رابطه.
+- للتحكم في الاشتراك المؤقت: `/authvip <id> <days>`.
+- للحفظ في قناة: `/set_channel <id>` | `/reset_channel`.
+- لإضافة كابشن: `/setcaption <text>` | `/delcaption`.
+    """
+    bot.send_message(message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 @bot.on_message(filters.command(["get"]))
 def send_get_help(client, message):
-    # ... الكود هنا كامل وصحيح
-    pass
+    help_text = """
+  **لـتشـغـيـل السحب الـمتـعدد تـابع الخـطواط** 🫴🏻✅
+    أرسل الرابط بهذا الشكل (رقم البداية - رقم النهاية).
+    - `https://t.me/username/123-130`
+**و سيقوم ببـدأ سـحب المنشورات** 🚀🔥
+    """
+    bot.send_message(chat_id=message.chat.id, text=help_text, reply_to_message_id=message.id, disable_web_page_preview=True)
 
 @bot.on_message(filters.text & ~filters.command(["start", "help", "get", "authvip", "remvip", "uservip", "cancel", "myid", "stats", "setcaption", "delcaption", "set_channel", "reset_channel"]))
 def save(client, message):
@@ -238,12 +296,23 @@ def save(client, message):
     target_chat_id = user_data.get('target_channel', message.chat.id)
 
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
-        # ... كود الانضمام يبقى كما هو
+        if acc is None:
+            bot.send_message(message.chat.id, "الحساب المساعد غير مفعل.", reply_to_message_id=message.id)
+            return
+        try:
+            acc.join_chat(message.text)
+            bot.send_message(message.chat.id, "✅ تم انضمام الحساب المساعد بنجاح!", reply_to_message_id=message.id)
+        except (InviteHashExpired, ValueError):
+            bot.send_message(message.chat.id, "⚠️ **فشل الانضمام!**\nالسبب: رابط الدعوة منتهي الصلاحية أو تم إبطاله.", reply_to_message_id=message.id)
+        except UserAlreadyParticipant:
+            bot.send_message(message.chat.id, "ℹ️ الحساب المساعد عضو بالفعل في هذه القناة.", reply_to_message_id=message.id)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ **حدث خطأ:**\n`{e}`", reply_to_message_id=message.id)
         return
 
     elif "https://t.me/" in message.text:
-        active_downloads.add(user_id)
         smsg = bot.send_message(message.chat.id, "تم استلام طلبك، جاري المعالجة...", reply_to_message_id=message.id)
+        active_downloads.add(user_id)
         try:
             datas = message.text.split("/")
             temp = datas[-1].replace("?single","").split("-")
@@ -259,10 +328,10 @@ def save(client, message):
             
             for i, msgid in enumerate(range(fromID, toID + 1)):
                 if cancel_tasks.get(user_id, False):
-                    bot.send_message(message.chat.id, "🛑 **تم إيقاف السحب.**")
+                    bot.send_message(target_chat_id, "🛑 **تم إيقاف السحب.**")
                     break
                 
-                bot.edit_message_text(message.chat.id, smsg.id, f"جاري سحب المنشور {i+1}/{toID - fromID + 1}...")
+                smsg.edit(f"جاري سحب المنشور {i+1}/{toID - fromID + 1}...")
                 
                 if "https://t.me/c/" in message.text:
                     chatid = int("-100" + datas[4])
@@ -274,7 +343,10 @@ def save(client, message):
         finally:
             if user_id in active_downloads: active_downloads.remove(user_id)
             if user_id in cancel_tasks: cancel_tasks[user_id] = False
-            smsg.delete()
+            try:
+                smsg.delete()
+            except:
+                pass
 
 def handle_private(message, chatid, msgid, target_chat_id, smsg):
     user_id = message.from_user.id
@@ -287,7 +359,7 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
             return
         msg = client_to_use.get_messages(chatid, msgid)
     except Exception as e:
-        bot.edit_message_text(message.chat.id, smsg.id, f"فشل في جلب المنشور {msgid}.\nالخطأ: `{e}`")
+        bot.send_message(message.chat.id, f"فشل في جلب المنشور {msgid}.\nالخطأ: `{e}`", reply_to_message_id=message.id)
         return
 
     original_caption = msg.caption if msg.caption else ""
@@ -302,7 +374,7 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
     file = None
     thumb = None
     try:
-        file = client_to_use.download_media(msg, progress=progress, progress_args=[smsg, "down"])
+        file = client_to_use.download_media(msg)
         if not file or os.path.getsize(file) == 0:
             raise Exception("فشل تحميل الملف أو الملف فارغ.")
         
@@ -312,17 +384,16 @@ def handle_private(message, chatid, msgid, target_chat_id, smsg):
              thumb = client_to_use.download_media(msg.document.thumbnail.file_id)
 
         if "Document" == msg_type:
-            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
+            bot.send_document(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
         elif "Video" == msg_type:
-            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id, progress=progress, progress_args=[smsg,"up"])
+            bot.send_video(target_chat_id, file, thumb=thumb, caption=final_caption, reply_to_message_id=message.id)
         elif "Photo" == msg_type:
             bot.send_photo(target_chat_id, file, caption=final_caption, reply_to_message_id=message.id)
         else:
             bot.copy_message(target_chat_id, msg.chat.id, msg.id, reply_to_message_id=message.id)
     
     except Exception as e:
-         bot.edit_message_text(message.chat.id, smsg.id, f"فشل في معالجة المنشور {msgid}.\nالخطأ: `{e}`")
-
+         bot.send_message(message.chat.id, f"فشل في معالجة المنشور {msgid}.\nالخطأ: `{e}`", reply_to_message_id=message.id)
     finally:
         if thumb and os.path.exists(thumb): os.remove(thumb)
         if file and os.path.exists(file): os.remove(file)
