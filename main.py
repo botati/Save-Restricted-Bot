@@ -5,6 +5,11 @@ from pyrogram.errors import UserAlreadyParticipant, InviteHashExpired, UsernameN
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from pymongo import MongoClient
 
+# --- [مهم] تم إضافة هذه السطور لدعم الاستوري في النسخ القديمة ---
+from pyrogram.raw.functions.stories import GetStories
+from pyrogram.raw.types import InputPeerUser
+# --------------------------------------------------------------------
+
 import time
 import os
 import threading
@@ -239,15 +244,24 @@ def save(client, message):
             if user_id != admin_id and not bot_users_collection.find_one({'user_id': user_id, 'is_subscribed': True}):
                 bot_users_collection.update_one({'user_id': user_id}, {'$inc': {'usage_count': 1}})
 
-            stories = acc.get_stories(username)
-            story_to_download = next((s for s in stories if s.id == story_id), None)
+            peer = acc.resolve_peer(username)
+            story_data = acc.invoke(
+                GetStories(
+                    peer=peer,
+                    id=[story_id]
+                )
+            )
             
-            if story_to_download:
-                file_path = acc.download_media(story_to_download)
-                if story_to_download.video:
+            if story_data.stories:
+                story_to_download = story_data.stories[0]
+                file_path = acc.download_media(story_to_download.media)
+                is_video = hasattr(story_to_download.media, 'video')
+                
+                if is_video:
                     bot.send_video(message.chat.id, file_path, caption=story_to_download.caption, reply_to_message_id=message.id)
                 else:
                     bot.send_photo(message.chat.id, file_path, caption=story_to_download.caption, reply_to_message_id=message.id)
+                
                 os.remove(file_path)
                 smsg.delete()
             else:
@@ -354,7 +368,6 @@ def get_message_type(msg):
     if msg.video: return "Video"
     if msg.photo: return "Photo"
     if msg.text: return "Text"
-    # Fallback for other types that are downloadable but not explicitly handled
     if msg.media: return "Document" 
     return None
 
