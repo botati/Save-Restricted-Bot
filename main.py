@@ -206,8 +206,8 @@ def save(client, message):
             pass
         else:
             usage_count = user_data.get('usage_count', 0)
-            posts_to_download = 0
-            if "https://t.me/" in message.text and "https://t.me/+" not in message.text:
+            posts_to_download = 1 # يتم حساب منشور واحد للاستوري أو الرابط العادي
+            if "https://t.me/" in message.text and "https://t.me/+" not in message.text and "/story/" not in message.text:
                 try:
                     datas = message.text.split("/")
                     temp = datas[-1].replace("?single","").split("-")
@@ -222,7 +222,7 @@ def save(client, message):
                 return
             if usage_count + posts_to_download > TRIAL_LIMIT:
                 remaining = TRIAL_LIMIT - usage_count
-                bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} منشور متبقي في الفترة التجريبية.", reply_to_message_id=message.id)
+                bot.send_message(message.chat.id, f"عذراً 🚫، طلبك يتجاوز الرصيد المتبقي.\nلديك {remaining} محاولة متبقية في الفترة التجريبية.", reply_to_message_id=message.id)
                 return
 
     # --- معالجة روابط الانضمام ---
@@ -241,7 +241,46 @@ def save(client, message):
             bot.send_message(message.chat.id,f"خـطـأ : __{e}__", reply_to_message_id=message.id)
         return
 
-    # --- معالجة روابط السحب ---
+    # --- [جديد] معالجة روابط الاستوري ---
+    elif "/story/" in message.text:
+        if acc is None:
+            bot.send_message(message.chat.id, "لا يمكن سحب الاستوريات بدون حساب مساعد.", reply_to_message_id=message.id)
+            return
+        
+        try:
+            parts = message.text.strip().split("/")
+            username = parts[-2]
+            story_id = int(parts[-1])
+            
+            smsg = bot.send_message(message.chat.id, "جاري سحب الاستوري...", reply_to_message_id=message.id)
+            
+            # زيادة عداد الاستخدام
+            if user_id != admin_id and not bot_users_collection.find_one({'user_id': user_id, 'is_subscribed': True}):
+                bot_users_collection.update_one({'user_id': user_id}, {'$inc': {'usage_count': 1}})
+
+            stories = acc.get_stories(username)
+            story_to_download = None
+            for story in stories:
+                if story.id == story_id:
+                    story_to_download = story
+                    break
+            
+            if story_to_download:
+                file_path = acc.download_media(story_to_download)
+                if story_to_download.video:
+                    bot.send_video(message.chat.id, file_path, caption=story_to_download.caption)
+                else:
+                    bot.send_photo(message.chat.id, file_path, caption=story_to_download.caption)
+                os.remove(file_path)
+                smsg.delete()
+            else:
+                smsg.edit("لم يتم العثور على الاستوري. قد تكون قد حُذفت أو أن الرابط غير صحيح.")
+                
+        except Exception as e:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء سحب الاستوري: {e}", reply_to_message_id=message.id)
+        return
+
+    # --- معالجة روابط السحب العادية ---
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
         temp = datas[-1].replace("?single","").split("-")
@@ -251,7 +290,6 @@ def save(client, message):
         
         cancel_tasks[user_id] = False
         
-        # زيادة عداد الاستخدام للمستخدمين غير المشتركين
         if user_id != admin_id:
             user_data = bot_users_collection.find_one({'user_id': user_id})
             if not user_data.get('is_subscribed', False):
