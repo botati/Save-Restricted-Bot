@@ -121,6 +121,11 @@ def progress(current, total, message, type):
 
 @bot.on_message(filters.command(["start"]))
 def send_start(client, message):
+    # --- السطر الجديد الذي تمت إضافته ---
+    # هذا السطر سيجعل البوت يرد عليك برقم إصدار المكتبة
+    message.reply_text(f"Pyrogram Version: {pyrogram.__version__}")
+    # ------------------------------------
+
     user_id = message.from_user.id
     # إضافة المستخدم الجديد إلى قاعدة البيانات مع عداد استخدام
     bot_users_collection.update_one(
