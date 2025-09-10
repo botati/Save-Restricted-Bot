@@ -248,6 +248,15 @@ def save(client, message):
                 cancel_tasks[user_id] = False
                 break
             
+            # --- تحديد اسم المستخدم قبل الدخول في معالجة الأخطاء ---
+            username = None
+            if "https://t.me/c/" not in message.text:
+                try:
+                    username = datas[3]
+                except IndexError:
+                    pass # يبقى اسم المستخدم فارغاً إذا كان الرابط غير مكتمل
+            # --- نهاية التحديد ---
+
             try:
                 if "https://t.me/c/" in message.text:
                     chatid = int("-100" + datas[4])
@@ -256,9 +265,9 @@ def save(client, message):
                         return
                     handle_private(message, chatid, msgid)
                 else:
-                    username = datas[3]
                     msg = bot.get_messages(username, msgid)
                     bot.copy_message(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
+
             except UsernameNotOccupied:
                 bot.send_message(message.chat.id, f"🚫 خطأ: المعرف `{username}` غير موجود أو غير صحيح.", reply_to_message_id=message.id)
                 break 
@@ -273,7 +282,7 @@ def save(client, message):
             except Exception:
                 if acc:
                     try:
-                        handle_private(message, username, msgid)
+                        handle_private(message, username or datas[3], msgid)
                     except Exception as acc_e:
                         bot.send_message(message.chat.id, f"🚫 حدث خطأ غير متوقع أثناء سحب المنشور `{msgid}`: `{acc_e}`", reply_to_message_id=message.id)
                 else:
@@ -284,9 +293,17 @@ def save(client, message):
 def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
+    # --- [هذا هو التعديل المطلوب] ---
     except PeerIdInvalid:
-        bot.send_message(message.chat.id, "❌ **لا يمكن الوصول إلى القناة.**\n\nيبدو أن حساب المساعد ليس عضواً في هذه القناة. يرجى التأكد من إرسال رابط الدعوة الصحيح أولاً.", reply_to_message_id=message.id)
+        # نستخرج اسم المستخدم من الرسالة الأصلية للمستخدم
+        username = "غير معروف"
+        try:
+            username = message.text.split("/")[3]
+        except IndexError:
+            pass
+        bot.send_message(message.chat.id, f"🔒 هذه القناة (`{username}`) خاصة. يرجى إرسال رابط الدعوة الخاص بها أولاً لينضم حساب المساعد.", reply_to_message_id=message.id)
         return
+    # --- [نهاية التعديل] ---
     except MessageIdInvalid:
         bot.send_message(message.chat.id, f"🗑️ لم يتمكن حساب المساعد من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
         return
