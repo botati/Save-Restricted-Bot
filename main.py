@@ -6,7 +6,6 @@ from pyrogram.errors import (
     PeerIdInvalid, ChannelPrivate, FloodWait, MessageIdInvalid, UserBannedInChannel
 )
 from pymongo import MongoClient
-from io import BytesIO # استيراد ضروري للمعالجة في الذاكرة
 
 import time
 import os
@@ -40,11 +39,9 @@ db = client['PaidBotDB']
 bot_users_collection = db['bot_users']
 
 # --- إعدادات البوت والحساب المساعد ---
-# [تعديل لزيادة السرعة] زيادة عدد العاملين إلى 20
-bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token, workers=20)
+bot = Client("mybot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 if ss:
-    # [تعديل لزيادة السرعة] زيادة عدد العاملين إلى 20
-    acc = Client("myacc", api_id=api_id, api_hash=api_hash, session_string=ss, workers=20)
+    acc = Client("myacc", api_id=api_id, api_hash=api_hash, session_string=ss)
 else:
     acc = None
 
@@ -126,12 +123,8 @@ def upstatus(statusfile, message):
             time.sleep(5)
 
 def progress(current, total, message, type):
-    # This function is not used with in-memory downloads but kept for integrity
-    try:
-        with open(f'{message.id}{type}status.txt', "w") as fileup:
-            fileup.write(f"{current * 100 / total:.1f}%")
-    except Exception:
-        pass
+    with open(f'{message.id}{type}status.txt', "w") as fileup:
+        fileup.write(f"{current * 100 / total:.1f}%")
 
 # --- الأوامر الأساسية ---
 @bot.on_message(filters.command(["start"]))
@@ -274,8 +267,7 @@ def save(client, message):
                 bot.send_message(message.chat.id, f"🚫 خطأ: المعرف `{username}` غير موجود أو غير صحيح.", reply_to_message_id=message.id)
                 break 
             except ChannelPrivate:
-                bot.send_message(message.chat.id, f"""عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة
-من فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥""", reply_to_message_id=message.id)
+                bot.send_message(message.chat.id, f"عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥", reply_to_message_id=message.id)
                 break
             except MessageIdInvalid:
                  bot.send_message(message.chat.id, f"🗑️ لم أتمكن من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
@@ -296,21 +288,32 @@ def save(client, message):
 def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
+    except MessageIdInvalid:
+        bot.send_message(message.chat.id, f"🗑️ لم يتمكن حساب المساعد من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
+        return
+    except UserBannedInChannel:
+        bot.send_message(message.chat.id, "🚫 **حساب المساعد محظور!**\n\nلا يمكن سحب المحتوى لأن حساب المساعد محظور في هذه القناة.", reply_to_message_id=message.id)
+        return
+    # --- [هذا هو التعديل المطلوب] ---
     except Exception as e:
+        # نفحص نص الخطأ نفسه
         if "Peer id invalid" in str(e):
             username = "القناة"
             try:
+                # محاولة استخراج اسم المستخدم من الرابط لمزيد من التوضيح
                 username = message.text.split("/")[3]
             except IndexError:
                 pass
             bot.send_message(
                 message.chat.id,
-                f"""🔒 هذه القناة (`{username}`) خاصة. يرجى إرسال رابط الدعوة الخاص بها أولاً لينضم حساب المساعد.""",
+                f"عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥",
                 reply_to_message_id=message.id
             )
         else:
+            # إذا كان الخطأ شيئًا آخر، نعرضه كما هو
             bot.send_message(message.chat.id, f"حدث خطأ غير متوقع أثناء الوصول للمنشور `{msgid}`: `{e}`", reply_to_message_id=message.id)
         return
+    # --- [نهاية التعديل] ---
 
     msg_type = get_message_type(msg)
     if "Text" == msg_type:
@@ -318,47 +321,44 @@ def handle_private(message, chatid, msgid):
         return
         
     smsg = bot.send_message(message.chat.id, 'جـــار الــتحـمـيـل، انتـظر مـن فـضـلك... ✅🚀', reply_to_message_id=message.id)
-    
+    dosta = threading.Thread(target=lambda: downstatus(f'{message.id}downstatus.txt', smsg), daemon=True)
+    dosta.start()
     try:
-        # --- [تعديل لزيادة السرعة] ---
-        # ⚠️ خطر: قد يتعطل البوت إذا كان حجم الملف أكبر من ذاكرة السيرفر (e.g., > 400MB on Heroku)
-        file_io = acc.download_media(msg, in_memory=True)
-        
-        # Pyrogram's in-memory download needs a filename for uploads
-        file_name = "untitled"
-        if getattr(msg, msg.media.value):
-            file_name = getattr(msg, msg.media.value).file_name or "untitled"
-        file_io.name = file_name
-    
+        file = acc.download_media(msg, progress=progress, progress_args=[message, "down"])
+        if os.path.exists(f'{message.id}downstatus.txt'): os.remove(f'{message.id}downstatus.txt')
     except Exception as e:
-        bot.edit_message_text(message.chat.id, smsg.id, f"🚫 فشل تحميل الملف: {e}")
+        bot.edit_message_text(message.chat.id, smsg.id, f"🚫 فشل تحميل الملف: `{e}`")
+        if os.path.exists(f'{message.id}downstatus.txt'): os.remove(f'{message.id}downstatus.txt')
         return
 
-    # No need for threading status updates with in-memory as it's much faster
-    bot.edit_message_text(message.chat.id, smsg.id, "✅ تم التحميل، جاري الرفع...")
-
-    # The file is now an in-memory BytesIO object, not a path
-    # We pass this object directly to the send methods
-    try:
-        if "Document" == msg_type:
-            bot.send_document(message.chat.id, file_io, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
-        elif "Video" == msg_type:
-            bot.send_video(message.chat.id, file_io, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
-        elif "Photo" == msg_type:
-            bot.send_photo(message.chat.id, file_io, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
-        else: # Fallback for audio, voice, etc.
-            bot.send_document(message.chat.id, file_io, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
-    except Exception as e:
-        bot.edit_message_text(message.chat.id, smsg.id, f"🚫 فشل رفع الملف: {e}")
-    finally:
-        bot.delete_messages(message.chat.id, [smsg.id])
+    upsta = threading.Thread(target=lambda: upstatus(f'{message.id}upstatus.txt', smsg), daemon=True)
+    upsta.start()
+    
+    if "Document" == msg_type:
+        try: thumb = acc.download_media(msg.document.thumbs[0].file_id)
+        except: thumb = None
+        bot.send_document(message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
+        if thumb is not None: os.remove(thumb)
+    elif "Video" == msg_type:
+        try: thumb = acc.download_media(msg.video.thumbs[0].file_id)
+        except: thumb = None
+        bot.send_video(message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
+        if thumb is not None: os.remove(thumb)
+    elif "Photo" == msg_type:
+        bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
+    else:
+         bot.send_document(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
+    
+    if os.path.exists(file): os.remove(file)
+    if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
+    bot.delete_messages(message.chat.id, [smsg.id])
 
 def get_message_type(msg):
     if msg.document: return "Document"
     if msg.video: return "Video"
     if msg.photo: return "Photo"
     if msg.text: return "Text"
-    return "Document" # Fallback for other media types
+    return "Document"
 
 # --- تشغيل البوت ---
 if __name__ == "__main__":
