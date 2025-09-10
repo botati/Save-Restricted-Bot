@@ -1,7 +1,6 @@
 import pyrogram
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-# استيراد أنواع الأخطاء للتعامل معها بشكل أفضل
 from pyrogram.errors import (
     UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, 
     PeerIdInvalid, ChannelPrivate, FloodWait, MessageIdInvalid, UserBannedInChannel
@@ -14,7 +13,6 @@ import threading
 import json
 
 # --- إعدادات الإتصال ---
-# يفضل استخدام متغيرات البيئة بدلاً من ملف config.json في بيئة الإنتاج
 try:
     with open('config.json', 'r') as f:
         DATA = json.load(f)
@@ -235,7 +233,6 @@ def save(client, message):
 
         cancel_tasks[user_id] = False
         
-        # زيادة عداد الاستخدام للمستخدمين غير المشتركين
         if user_id != admin_id:
             user_data = bot_users_collection.find_one({'user_id': user_id})
             if not user_data.get('is_subscribed', False):
@@ -248,14 +245,12 @@ def save(client, message):
                 cancel_tasks[user_id] = False
                 break
             
-            # --- تحديد اسم المستخدم قبل الدخول في معالجة الأخطاء ---
             username = None
             if "https://t.me/c/" not in message.text:
                 try:
                     username = datas[3]
                 except IndexError:
-                    pass # يبقى اسم المستخدم فارغاً إذا كان الرابط غير مكتمل
-            # --- نهاية التحديد ---
+                    pass
 
             try:
                 if "https://t.me/c/" in message.text:
@@ -288,31 +283,37 @@ def save(client, message):
                 else:
                     bot.send_message(message.chat.id, f"🚫 فشل الوصول للمنشور `{msgid}`. قد تكون القناة خاصة وتحتاج لحساب مساعد.", reply_to_message_id=message.id)
             
-            time.sleep(3) # لإبطاء الطلبات وتجنب الحظر
+            time.sleep(3)
 
 def handle_private(message, chatid, msgid):
     try:
         msg = acc.get_messages(chatid, msgid)
-    # --- [هذا هو التعديل المطلوب] ---
-    except PeerIdInvalid:
-        # نستخرج اسم المستخدم من الرسالة الأصلية للمستخدم
-        username = "غير معروف"
-        try:
-            username = message.text.split("/")[3]
-        except IndexError:
-            pass
-        bot.send_message(message.chat.id, f"🔒 هذه القناة (`{username}`) خاصة. يرجى إرسال رابط الدعوة الخاص بها أولاً لينضم حساب المساعد.", reply_to_message_id=message.id)
-        return
-    # --- [نهاية التعديل] ---
     except MessageIdInvalid:
         bot.send_message(message.chat.id, f"🗑️ لم يتمكن حساب المساعد من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
         return
     except UserBannedInChannel:
         bot.send_message(message.chat.id, "🚫 **حساب المساعد محظور!**\n\nلا يمكن سحب المحتوى لأن حساب المساعد محظور في هذه القناة.", reply_to_message_id=message.id)
         return
+    # --- [هذا هو التعديل المطلوب] ---
     except Exception as e:
-        bot.send_message(message.chat.id, f"حدث خطأ غير متوقع أثناء الوصول للمنشور `{msgid}`: `{e}`", reply_to_message_id=message.id)
+        # نفحص نص الخطأ نفسه
+        if "Peer id invalid" in str(e):
+            username = "القناة"
+            try:
+                # محاولة استخراج اسم المستخدم من الرابط لمزيد من التوضيح
+                username = message.text.split("/")[3]
+            except IndexError:
+                pass
+            bot.send_message(
+                message.chat.id,
+                f"🔒 هذه القناة (`{username}`) خاصة. يرجى إرسال رابط الدعوة الخاص بها أولاً لينضم حساب المساعد.",
+                reply_to_message_id=message.id
+            )
+        else:
+            # إذا كان الخطأ شيئًا آخر، نعرضه كما هو
+            bot.send_message(message.chat.id, f"حدث خطأ غير متوقع أثناء الوصول للمنشور `{msgid}`: `{e}`", reply_to_message_id=message.id)
         return
+    # --- [نهاية التعديل] ---
 
     msg_type = get_message_type(msg)
     if "Text" == msg_type:
@@ -324,7 +325,7 @@ def handle_private(message, chatid, msgid):
     dosta.start()
     try:
         file = acc.download_media(msg, progress=progress, progress_args=[message, "down"])
-        os.remove(f'{message.id}downstatus.txt')
+        if os.path.exists(f'{message.id}downstatus.txt'): os.remove(f'{message.id}downstatus.txt')
     except Exception as e:
         bot.edit_message_text(message.chat.id, smsg.id, f"🚫 فشل تحميل الملف: `{e}`")
         if os.path.exists(f'{message.id}downstatus.txt'): os.remove(f'{message.id}downstatus.txt')
@@ -348,7 +349,7 @@ def handle_private(message, chatid, msgid):
     else:
          bot.send_document(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
     
-    os.remove(file)
+    if os.path.exists(file): os.remove(file)
     if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
     bot.delete_messages(message.chat.id, [smsg.id])
 
@@ -357,8 +358,7 @@ def get_message_type(msg):
     if msg.video: return "Video"
     if msg.photo: return "Photo"
     if msg.text: return "Text"
-    # يمكنك إضافة المزيد من الأنواع هنا إذا أردت
-    return "Document" # نوع افتراضي للملفات الأخرى مثل الصوتيات والملصقات
+    return "Document"
 
 # --- تشغيل البوت ---
 if __name__ == "__main__":
