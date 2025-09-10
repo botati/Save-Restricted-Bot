@@ -267,7 +267,7 @@ def save(client, message):
                 bot.send_message(message.chat.id, f"🚫 خطأ: المعرف `{username}` غير موجود أو غير صحيح.", reply_to_message_id=message.id)
                 break 
             except ChannelPrivate:
-                bot.send_message(message.chat.id, f"🔒 هذه القناة (`{username}`) خاصة. يرجى إرسال رابط الدعوة الخاص بها أولاً لينضم حساب المساعد.", reply_to_message_id=message.id)
+                bot.send_message(message.chat.id, f"عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة/nمن فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥", reply_to_message_id=message.id)
                 break
             except MessageIdInvalid:
                  bot.send_message(message.chat.id, f"🗑️ لم أتمكن من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
