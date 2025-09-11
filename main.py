@@ -150,7 +150,7 @@ def send_start(client, message):
                 [InlineKeyboardButton("مـن أكــون 😅✅", url="https://t.me/Q_A_66/65")]
             ]
         )
-    ))
+    )
 
 @bot.on_message(filters.command(["help", "get"]))
 def send_help(client, message):
