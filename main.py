@@ -28,7 +28,7 @@ api_id = getenv("API_LOL_ID")
 ss = getenv("STRING")
 mongo_uri = getenv("MONGO_DB_URI")
 admin_id = int(getenv("ADMIN_ID"))
-TRIAL_LIMIT = 100
+TRIAL_LIMIT = 50
 
 # --- متغيرات لتتبع الحالات ---
 cancel_tasks = {}
