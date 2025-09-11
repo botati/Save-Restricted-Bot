@@ -287,34 +287,35 @@ def save(client, message):
 
 def handle_private(message, chatid, msgid):
     try:
+        # محاولة جلب المنشور باستخدام الحساب المساعد
         msg = acc.get_messages(chatid, msgid)
+
+    # --- [بداية التعديل المطلوب] ---
+    # هذا هو الخطأ المحدد الذي يظهر عندما لا يكون الحساب المساعد في القناة
+    except PeerIdInvalid:
+        bot.send_message(
+            message.chat.id,
+            "عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذه القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥",
+            reply_to_message_id=message.id
+        )
+        return
+
+    # معالجة الأخطاء الأخرى التي قد تحدث
     except MessageIdInvalid:
         bot.send_message(message.chat.id, f"🗑️ لم يتمكن حساب المساعد من العثور على المنشور رقم `{msgid}`. قد يكون تم حذفه.", reply_to_message_id=message.id)
         return
+        
     except UserBannedInChannel:
         bot.send_message(message.chat.id, "🚫 **حساب المساعد محظور!**\n\nلا يمكن سحب المحتوى لأن حساب المساعد محظور في هذه القناة.", reply_to_message_id=message.id)
         return
-    # --- [هذا هو التعديل المطلوب] ---
-    except Exception as e:
-        # نفحص نص الخطأ نفسه
-        if "Peer id invalid" in str(e):
-            username = "القناة"
-            try:
-                # محاولة استخراج اسم المستخدم من الرابط لمزيد من التوضيح
-                username = message.text.split("/")[3]
-            except IndexError:
-                pass
-            bot.send_message(
-                message.chat.id,
-                f"عـذرا عـزيـزي المستخدم مسـاعد البـوت غـير موجود في هذا القناة/المجموعة من فضـلك ارسـل رابـط الانضمام لتتمكن من سحب المنشورات ✅🔥",
-                reply_to_message_id=message.id
-            )
-        else:
-            # إذا كان الخطأ شيئًا آخر، نعرضه كما هو
-            bot.send_message(message.chat.id, f"حدث خطأ غير متوقع أثناء الوصول للمنشور `{msgid}`: `{e}`", reply_to_message_id=message.id)
-        return
-    # --- [نهاية التعديل] ---
 
+    # معالجة أي خطأ غير متوقع آخر
+    except Exception as e:
+        bot.send_message(message.chat.id, f"حدث خطأ غير متوقع أثناء الوصول للمنشور `{msgid}`: `{e}`", reply_to_message_id=message.id)
+        return
+    # --- [نهاية التعديل المطلوب] ---
+
+    # -- باقي الكود يستمر كما هو بدون أي تغيير --
     msg_type = get_message_type(msg)
     if "Text" == msg_type:
         bot.send_message(message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
@@ -347,7 +348,7 @@ def handle_private(message, chatid, msgid):
     elif "Photo" == msg_type:
         bot.send_photo(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id)
     else:
-         bot.send_document(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
+        bot.send_document(message.chat.id, file, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
     
     if os.path.exists(file): os.remove(file)
     if os.path.exists(f'{message.id}upstatus.txt'): os.remove(f'{message.id}upstatus.txt')
