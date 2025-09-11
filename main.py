@@ -1,6 +1,7 @@
 import pyrogram
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, timedelta
 from pyrogram.errors import (
     UserAlreadyParticipant, InviteHashExpired, UsernameNotOccupied, 
     PeerIdInvalid, ChannelPrivate, FloodWait, MessageIdInvalid, UserBannedInChannel
@@ -130,11 +131,14 @@ def progress(current, total, message, type):
 @bot.on_message(filters.command(["start"]))
 def send_start(client, message):
     user_id = message.from_user.id
+    # -- [بداية التعديل] --
+    # عند إدخال مستخدم جديد، يتم إضافة تاريخ بدء التجربة
     bot_users_collection.update_one(
         {'user_id': user_id},
-        {'$setOnInsert': {'is_subscribed': False, 'usage_count': 0}},
+        {'$setOnInsert': {'is_subscribed': False, 'usage_count': 0, 'trial_date': datetime.utcnow()}},
         upsert=True
     )
+    # -- [نهاية التعديل] --
     bot.send_photo(
         chat_id=message.chat.id,
         photo="https://i.top4top.io/p_3538zm2ln1.png",
@@ -146,6 +150,7 @@ def send_start(client, message):
                 [InlineKeyboardButton("مـن أكــون 😅✅", url="https://t.me/Q_A_66/65")]
             ]
         )
+    )
     )
 
 @bot.on_message(filters.command(["help", "get"]))
@@ -188,15 +193,35 @@ def save(client, message):
     # --- نظام التحقق والفترة التجريبية ---
     if user_id != admin_id:
         user_data = bot_users_collection.find_one({'user_id': user_id})
+        # التأكد من وجود بيانات للمستخدم (يتم إنشاؤها عبر أمر /start)
         if not user_data:
-            bot_users_collection.insert_one({'user_id': user_id, 'is_subscribed': False, 'usage_count': 0})
-            user_data = bot_users_collection.find_one({'user_id': user_id})
+            # رسالة في حال لم يضغط المستخدم على /start من قبل
+            message.reply_text("الرجاء الضغط على /start أولاً لبدء استخدام البوت 😄✅")
+            return
 
+        # التحقق فقط إذا كان المستخدم غير مشترك
         if not user_data.get('is_subscribed', False):
             usage_count = user_data.get('usage_count', 0)
+            
+            # التحقق إذا وصل للحد الأقصى
             if usage_count >= TRIAL_LIMIT:
-                bot.send_message(message.chat.id, "عـذراً، لقد استهلكت كامل رصيدك في التجربة المجانية.\nللحصول على اشتراك، تـواصـل مـع الـمـطور @EG_28 ✅🔥", reply_to_message_id=message.id)
-                return
+                trial_date = user_data.get('trial_date', datetime.utcnow())
+                
+                # التحقق إذا مر يومان على انتهاء التجربة
+                if datetime.utcnow() > trial_date + timedelta(days=2):
+                    # مر يومان، يتم تصفير العداد وتحديث التاريخ
+                    bot_users_collection.update_one(
+                        {'user_id': user_id},
+                        {'$set': {'usage_count': 0, 'trial_date': datetime.utcnow()}}
+                    )
+                else:
+                    # لم يمر يومان، يتم إظهار رسالة الانتظار
+                    bot.send_message(
+                        message.chat.id,
+                        "عـذراً، لقد استهلكت كامل رصيدك في التجربة المجانية.\nللحصول على اشتراك، تـواصـل مـع الـمـطور @EG_28 ✅🔥\n\n**سيتم تجديد رصيدك التجريبي تلقائياً بعد مرور 48 ساعة.** 🆕🔥",
+                        reply_to_message_id=message.id
+                    )
+                    return
 
     # --- معالجة روابط الانضمام ---
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
